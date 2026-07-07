@@ -221,16 +221,19 @@ struct ResetStatPopover: View {
             .help("Settings")
             Button {
                 viewModel.updateConfiguration { configuration in
-                    configuration.privacy.hidesProviderNames.toggle()
+                    let modes: [MenuBarDisplay] = [.logos, .countdowns, .hidden]
+                    let current = configuration.privacy.menuBarDisplay
+                    let index = modes.firstIndex(of: current).map { ($0 + 1) % modes.count } ?? 0
+                    configuration.privacy.menuBarDisplay = modes[index]
                 }
             } label: {
-                Image(systemName: viewModel.hidesProviderNames ? "circle.fill" : "circle")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(viewModel.hidesProviderNames ? Color.accentColor : Color.secondary.opacity(0.55))
+                Image(systemName: menuBarDisplayIcon)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(menuBarDisplay == .logos ? Color.secondary.opacity(0.75) : Color.accentColor)
                     .frame(width: 16, height: 16)
             }
             .buttonStyle(.borderless)
-            .help(viewModel.hidesProviderNames ? "Show provider names" : "Hide provider names")
+            .help(menuBarDisplayHelp)
             Button("Quit") {
                 NSApp.terminate(nil)
             }
@@ -694,8 +697,13 @@ struct ResetStatPopover: View {
 
                 Divider()
 
-                Toggle("Hide provider names", isOn: privacyBinding)
-                    .font(.caption.weight(.semibold))
+                Picker("Menu bar", selection: menuBarDisplayBinding) {
+                    Text("Logos").tag(MenuBarDisplay.logos)
+                    Text("Countdowns").tag(MenuBarDisplay.countdowns)
+                    Text("Hidden").tag(MenuBarDisplay.hidden)
+                }
+                .pickerStyle(.segmented)
+                .font(.caption.weight(.semibold))
 
                 HStack {
                     Button("Reset all settings") {
@@ -799,13 +807,33 @@ struct ResetStatPopover: View {
         )
     }
 
-    private var privacyBinding: Binding<Bool> {
+    private var menuBarDisplayBinding: Binding<MenuBarDisplay> {
         Binding(
-            get: { viewModel.configuration.privacy.hidesProviderNames },
+            get: { viewModel.configuration.privacy.menuBarDisplay },
             set: { value in
-                viewModel.updateConfiguration { $0.privacy.hidesProviderNames = value }
+                viewModel.updateConfiguration { $0.privacy.menuBarDisplay = value }
             }
         )
+    }
+
+    private var menuBarDisplay: MenuBarDisplay {
+        viewModel.menuBarDisplay
+    }
+
+    private var menuBarDisplayIcon: String {
+        switch menuBarDisplay {
+        case .logos: return "circle.grid.2x2"
+        case .countdowns: return "timer"
+        case .hidden: return "eye.slash"
+        }
+    }
+
+    private var menuBarDisplayHelp: String {
+        switch menuBarDisplay {
+        case .logos: return "Menu bar: logos"
+        case .countdowns: return "Menu bar: countdowns"
+        case .hidden: return "Menu bar: hidden"
+        }
     }
 
     private func providerEnabledBinding(_ tab: ProviderTab) -> Binding<Bool> {
@@ -1371,10 +1399,20 @@ private enum MenuBarStatusImageRenderer {
     private static let ringDiameter: CGFloat = 16
     private static let ringLineWidth: CGFloat = 2.5
     private static let ringGap: CGFloat = 5
+    private static let pillHeight: CGFloat = 14
+    private static let pillLineWidth: CGFloat = 1.4
+    private static let pillMinWidth: CGFloat = 24
+    private static let pillHorizontalPadding: CGFloat = 10
 
     static func size(for status: MenuBarStatusSnapshot) -> NSSize {
-        let ringCount = max(status.indicators.count, 1)
-        let width = CGFloat(ringCount) * ringDiameter + CGFloat(ringCount - 1) * ringGap
+        let indicatorCount = max(status.indicators.count, 1)
+        if status.menuBarDisplay == .countdowns {
+            let pillWidths = status.indicators.map { pillWidth(for: $0) }.reduce(0, +)
+            let totalPillWidth = max(pillWidths, pillMinWidth)
+            let gaps = CGFloat(max(status.indicators.count - 1, 0)) * ringGap
+            return NSSize(width: totalPillWidth + gaps, height: height)
+        }
+        let width = CGFloat(indicatorCount) * ringDiameter + CGFloat(indicatorCount - 1) * ringGap
         return NSSize(width: width, height: height)
     }
 
@@ -1392,7 +1430,23 @@ private enum MenuBarStatusImageRenderer {
         NSRect(origin: .zero, size: size).fill()
 
         if status.indicators.isEmpty {
-            drawEmptyStateRing(in: size)
+            if status.menuBarDisplay == .countdowns {
+                drawEmptyStatePill(in: size)
+            } else {
+                drawEmptyStateRing(in: size)
+            }
+        } else if status.menuBarDisplay == .countdowns {
+            var xOffset: CGFloat = 0
+            for indicator in status.indicators {
+                let width = pillWidth(for: indicator)
+                let center = NSPoint(x: xOffset + width / 2, y: size.height / 2)
+                drawCountdownPill(
+                    center: center,
+                    indicator: indicator,
+                    isRefreshing: status.isRefreshing
+                )
+                xOffset += width + ringGap
+            }
         } else {
             for (index, indicator) in status.indicators.enumerated() {
                 let x = CGFloat(index) * (ringDiameter + ringGap) + ringDiameter / 2
@@ -1416,8 +1470,122 @@ private enum MenuBarStatusImageRenderer {
         track.appendArc(withCenter: center, radius: radius, startAngle: 0, endAngle: 360, clockwise: false)
         track.lineWidth = ringLineWidth
         track.lineCapStyle = .round
-        NSColor.secondaryLabelColor.withAlphaComponent(0.45).setStroke()
+        NSColor.white.withAlphaComponent(0.30).setStroke()
         track.stroke()
+    }
+
+    private static func drawEmptyStatePill(in size: NSSize) {
+        let pillRect = NSRect(
+            x: 0,
+            y: (size.height - pillHeight) / 2,
+            width: pillMinWidth,
+            height: pillHeight
+        )
+        let path = NSBezierPath(roundedRect: pillRect, xRadius: pillHeight / 2, yRadius: pillHeight / 2)
+        NSColor.white.withAlphaComponent(0.30).setStroke()
+        path.lineWidth = pillLineWidth
+        path.stroke()
+    }
+
+    private static func pillWidth(for indicator: MenuBarProviderIndicator) -> CGFloat {
+        max(countdownTextSize(for: indicator.countdownText).width + pillHorizontalPadding, pillMinWidth)
+    }
+
+    private static func countdownTextAttributes() -> [NSAttributedString.Key: Any] {
+        [
+            .font: NSFont.systemFont(ofSize: 8, weight: .bold),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.92)
+        ]
+    }
+
+    private static func countdownTextSize(for text: String) -> NSSize {
+        (text as NSString).size(withAttributes: countdownTextAttributes())
+    }
+
+    private static func drawCountdownPill(
+        center: NSPoint,
+        indicator: MenuBarProviderIndicator,
+        isRefreshing: Bool
+    ) {
+        let text = indicator.countdownText
+        let textSize = countdownTextSize(for: text)
+        let pillWidth = max(textSize.width + pillHorizontalPadding, pillMinWidth)
+        let pillRect = NSRect(
+            x: center.x - pillWidth / 2,
+            y: center.y - pillHeight / 2,
+            width: pillWidth,
+            height: pillHeight
+        )
+        let path = NSBezierPath(roundedRect: pillRect, xRadius: pillHeight / 2, yRadius: pillHeight / 2)
+        let tint = pillTint(for: indicator)
+
+        tint.withAlphaComponent(0.12).setFill()
+        path.fill()
+
+        NSColor.white.withAlphaComponent(0.22).setStroke()
+        path.lineWidth = pillLineWidth
+        path.stroke()
+
+        let percent = max(0, min(100, indicator.percentUsed ?? 0))
+        if percent > 0 {
+            let progressWidth = pillRect.width * CGFloat(percent / 100)
+            let progressRect = NSRect(
+                x: pillRect.minX,
+                y: pillRect.minY,
+                width: progressWidth,
+                height: pillRect.height
+            )
+
+            NSGraphicsContext.current?.saveGraphicsState()
+            defer { NSGraphicsContext.current?.restoreGraphicsState() }
+
+            path.addClip()
+            NSBezierPath(rect: progressRect).addClip()
+
+            tint.setStroke()
+            path.lineWidth = pillLineWidth + 0.8
+            path.stroke()
+        }
+
+        (text as NSString).draw(
+            at: NSPoint(x: center.x - textSize.width / 2, y: center.y - textSize.height / 2),
+            withAttributes: countdownTextAttributes()
+        )
+
+        let badgeCenter = NSPoint(x: pillRect.maxX, y: pillRect.maxY)
+        if case .stale = indicator.state {
+            drawBadge(center: badgeCenter, color: .systemOrange, offset: NSPoint(x: -2.5, y: -2.5))
+        } else if isRefreshing {
+            drawBadge(center: badgeCenter, color: .systemBlue, offset: NSPoint(x: -2.5, y: -2.5))
+        }
+    }
+
+    private static func pillTint(for indicator: MenuBarProviderIndicator) -> NSColor {
+        switch indicator.state {
+        case .loading, .unavailable:
+            return .systemGray
+        case .healthy:
+            return lowUsageColor(for: indicator.tab)
+        case .warning, .stale:
+            return .systemOrange
+        case .critical:
+            return .systemRed
+        }
+    }
+
+    private static func lowUsageColor(for tab: ProviderTab) -> NSColor {
+        switch tab {
+        case .codex:
+            return .systemBlue
+        case .cursor:
+            return .systemPurple
+        case .devin:
+            return .systemGreen
+        case .openCodeGo:
+            return .systemIndigo
+        case .overview, .settings:
+            return .systemGray
+        }
     }
 
     private static func drawRing(
@@ -1437,7 +1605,7 @@ private enum MenuBarStatusImageRenderer {
         )
         track.lineWidth = ringLineWidth
         track.lineCapStyle = .round
-        NSColor.labelColor.withAlphaComponent(0.24).setStroke()
+        NSColor.white.withAlphaComponent(0.22).setStroke()
         track.stroke()
 
         switch indicator.state {
@@ -1532,7 +1700,7 @@ private enum MenuBarStatusImageRenderer {
         slash.line(to: NSPoint(x: center.x + radius * 0.65, y: center.y + radius * 0.65))
         slash.lineWidth = 1.8
         slash.lineCapStyle = .round
-        NSColor.secondaryLabelColor.setStroke()
+        NSColor.white.withAlphaComponent(0.55).setStroke()
         slash.stroke()
     }
 
@@ -1562,7 +1730,7 @@ private enum MenuBarStatusImageRenderer {
 
         let configuration = NSImage.SymbolConfiguration(pointSize: iconPointSize(for: tab), weight: .bold)
         let configured = symbol.withSymbolConfiguration(configuration) ?? symbol
-        let image = tintedImage(configured, color: NSColor.labelColor.withAlphaComponent(alpha))
+        let image = tintedImage(configured, color: NSColor.white.withAlphaComponent(alpha))
         let layout = iconLayout(for: tab, hidesProviderNames: hidesProviderNames)
         let rect = NSRect(
             x: center.x - layout.size.width / 2 + layout.offset.x,
@@ -1576,7 +1744,7 @@ private enum MenuBarStatusImageRenderer {
     private static func drawPromptIcon(center: NSPoint, alpha: CGFloat) {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 6.2, weight: .bold),
-            .foregroundColor: NSColor.labelColor.withAlphaComponent(alpha)
+            .foregroundColor: NSColor.white.withAlphaComponent(alpha)
         ]
         let attributed = NSAttributedString(string: ">_", attributes: attributes)
         let textSize = attributed.size()
@@ -1600,7 +1768,7 @@ private enum MenuBarStatusImageRenderer {
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 6.5, weight: .bold),
-            .foregroundColor: NSColor.labelColor.withAlphaComponent(alpha)
+            .foregroundColor: NSColor.white.withAlphaComponent(alpha)
         ]
         let attributed = NSAttributedString(string: text, attributes: attributes)
         let textSize = attributed.size()

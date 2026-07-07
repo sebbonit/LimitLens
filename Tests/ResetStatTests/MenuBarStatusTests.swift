@@ -98,12 +98,58 @@ struct MenuBarStatusTests {
         )
 
         await viewModel.refresh()
-        viewModel.updateConfiguration { $0.privacy.hidesProviderNames = true }
+        viewModel.updateConfiguration { $0.privacy.menuBarDisplay = .hidden }
         let status = viewModel.menuBarStatus
 
         #expect(status.hidesProviderNames == true)
+        #expect(status.menuBarDisplay == .hidden)
         #expect(status.helpText.contains("Provider 1 Daily 42% used (healthy 42%)"))
         #expect(!status.helpText.contains("Codex"))
+    }
+
+    @Test("Countdowns mode populates compact countdown text per indicator")
+    func countdownsModePopulatesCountdownText() async {
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 42, resetsInSeconds: 5_400))),
+            cursor: MockCursorUsageClient(result: .success(cursorSnapshot(percent: 25, resetsInSeconds: 9_000))),
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80, dailyResetsInSeconds: 90_000)])),
+            openCodeGo: MockOpenCodeGoUsageClient(result: .success(openCodeGoSnapshot(percent: 5, resetsInSeconds: 1_200)))
+        )
+
+        await viewModel.refresh()
+        viewModel.now = viewModel.now.addingTimeInterval(-30)
+        viewModel.updateConfiguration { $0.privacy.menuBarDisplay = .countdowns }
+        let status = viewModel.menuBarStatus
+
+        #expect(status.menuBarDisplay == .countdowns)
+        #expect(status.indicators.count == 4)
+        #expect(status.indicators[0].countdownText == "1h30m")
+        #expect(status.indicators[1].countdownText == "2h30m")
+        #expect(status.indicators[2].countdownText == "1d1h")
+        #expect(status.indicators[3].countdownText == "20m")
+    }
+
+    @Test("Countdowns mode falls back when reset is unknown")
+    func countdownsModeFallsBackWhenResetUnknown() async {
+        let snapshot = OpenCodeGoUsageSnapshot(
+            rolling: OpenCodeGoUsageWindow(usedPercent: 5, resetAt: nil),
+            weekly: nil,
+            monthly: nil,
+            billing: nil,
+            source: "Test"
+        )
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 42, resetsInSeconds: 5_400))),
+            cursor: MockCursorUsageClient(result: .success(cursorSnapshot(percent: 25, resetsInSeconds: 9_000))),
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80, dailyResetsInSeconds: 90_000)])),
+            openCodeGo: MockOpenCodeGoUsageClient(result: .success(snapshot))
+        )
+
+        await viewModel.refresh()
+        viewModel.updateConfiguration { $0.privacy.menuBarDisplay = .countdowns }
+        let status = viewModel.menuBarStatus
+
+        #expect(status.indicators.first { $0.tab == .openCodeGo }?.countdownText == "?")
     }
 
     @Test("Disabled providers are omitted from menu bar indicators")
@@ -256,7 +302,7 @@ private enum TestError: Error {
     case unavailable
 }
 
-private func codexSnapshot(primaryPercent: Int) -> ResetStatSnapshot {
+private func codexSnapshot(primaryPercent: Int, resetsInSeconds: TimeInterval = 3_600) -> ResetStatSnapshot {
     let rateLimit: RateLimitSnapshot = decodeJSON(
         """
         {
@@ -266,7 +312,7 @@ private func codexSnapshot(primaryPercent: Int) -> ResetStatSnapshot {
           "limitName": null,
           "planType": "pro",
           "primary": {
-            "resetsAt": \(Int(Date().addingTimeInterval(3_600).timeIntervalSince1970)),
+            "resetsAt": \(Int(Date().addingTimeInterval(resetsInSeconds).timeIntervalSince1970)),
             "usedPercent": \(primaryPercent),
             "windowDurationMins": 1440
           },
@@ -283,13 +329,13 @@ private func codexSnapshot(primaryPercent: Int) -> ResetStatSnapshot {
     )
 }
 
-private func cursorSnapshot(percent: Double) -> CursorUsageSnapshot {
+private func cursorSnapshot(percent: Double, resetsInSeconds: TimeInterval = 86_400) -> CursorUsageSnapshot {
     CursorUsageSnapshot(
         planName: "Pro",
         price: "$20/mo",
         includedAmountCents: 2_000,
         billingCycleStart: nil,
-        billingCycleEnd: Date().addingTimeInterval(86_400),
+        billingCycleEnd: Date().addingTimeInterval(resetsInSeconds),
         remainingCents: nil,
         limitCents: nil,
         totalPercentUsed: percent,
@@ -303,7 +349,7 @@ private func cursorSnapshot(percent: Double) -> CursorUsageSnapshot {
     )
 }
 
-private func desktopQuotaSnapshot(dailyRemainingPercent: Int) -> DesktopQuotaSnapshot {
+private func desktopQuotaSnapshot(dailyRemainingPercent: Int, dailyResetsInSeconds: TimeInterval = 86_400) -> DesktopQuotaSnapshot {
     DesktopQuotaSnapshot(
         appName: "Devin Desktop",
         planName: "Pro",
@@ -312,15 +358,15 @@ private func desktopQuotaSnapshot(dailyRemainingPercent: Int) -> DesktopQuotaSna
         cycleEnd: Date().addingTimeInterval(86_400 * 20),
         dailyRemainingPercent: dailyRemainingPercent,
         weeklyRemainingPercent: 80,
-        dailyResetAt: Date().addingTimeInterval(86_400),
+        dailyResetAt: Date().addingTimeInterval(dailyResetsInSeconds),
         weeklyResetAt: Date().addingTimeInterval(86_400 * 7),
         overageBalanceMicros: nil
     )
 }
 
-private func openCodeGoSnapshot(percent: Double) -> OpenCodeGoUsageSnapshot {
+private func openCodeGoSnapshot(percent: Double, resetsInSeconds: TimeInterval = 3_600) -> OpenCodeGoUsageSnapshot {
     OpenCodeGoUsageSnapshot(
-        rolling: OpenCodeGoUsageWindow(usedPercent: percent, resetAt: Date().addingTimeInterval(3_600)),
+        rolling: OpenCodeGoUsageWindow(usedPercent: percent, resetAt: Date().addingTimeInterval(resetsInSeconds)),
         weekly: nil,
         monthly: nil,
         billing: nil,

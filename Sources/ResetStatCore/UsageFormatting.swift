@@ -54,6 +54,25 @@ public enum UsageFormatting {
         return "\(max(minutes, 1))m"
     }
 
+    public static func compactCountdownText(date: Date?, now: Date = Date()) -> String {
+        guard let date else { return "?" }
+        let interval = date.timeIntervalSince(now)
+        guard interval > 0 else { return "now" }
+
+        let totalMinutes = Int(interval / 60)
+        let days = totalMinutes / (60 * 24)
+        let hours = (totalMinutes % (60 * 24)) / 60
+        let minutes = totalMinutes % 60
+
+        if days > 0 {
+            return hours > 0 ? "\(days)d\(hours)h" : "\(days)d"
+        }
+        if hours > 0 {
+            return minutes > 0 ? "\(hours)h\(minutes)m" : "\(hours)h"
+        }
+        return "\(max(minutes, 1))m"
+    }
+
     public static func percentRemaining(usedPercent: Int) -> Int {
         max(0, min(100, 100 - usedPercent))
     }

@@ -310,6 +310,19 @@ struct ResetStatCoreTests {
         #expect(UsageFormatting.percentRemaining(usedPercent: 35) == 65)
     }
 
+    @Test("Formats compact countdown text for menu bar")
+    func formatsCompactCountdownText() {
+        let now = Date(timeIntervalSince1970: 1_782_900_000)
+
+        #expect(UsageFormatting.compactCountdownText(date: nil, now: now) == "?")
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(-60), now: now) == "now")
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(15 * 60), now: now) == "15m")
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(90 * 60), now: now) == "1h30m")
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(60 * 60), now: now) == "1h")
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(25 * 3_600), now: now) == "1d1h")
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(86_400), now: now) == "1d")
+    }
+
     @Test("Formats relative day text")
     func formatsRelativeDayText() {
         var calendar = Calendar(identifier: .gregorian)

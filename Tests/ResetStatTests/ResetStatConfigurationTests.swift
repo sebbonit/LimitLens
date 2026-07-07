@@ -38,14 +38,39 @@ struct ResetStatConfigurationTests {
         let store = ResetStatConfigurationStore(url: url)
         store.configuration.providers.codex.isEnabled = false
         store.configuration.providers.cursor.stateDatabasePath = "/tmp/cursor-state.vscdb"
-        store.configuration.privacy.hidesProviderNames = true
+        store.configuration.privacy.menuBarDisplay = .hidden
         store.save()
 
         let reloaded = ResetStatConfigurationStore(url: url)
 
         #expect(reloaded.configuration.providers.codex.isEnabled == false)
         #expect(reloaded.configuration.providers.cursor.stateDatabasePath == "/tmp/cursor-state.vscdb")
+        #expect(reloaded.configuration.privacy.menuBarDisplay == .hidden)
         #expect(reloaded.configuration.privacy.hidesProviderNames == true)
+    }
+
+    @Test("Legacy hidesProviderNames config migrates to menuBarDisplay")
+    func legacyHidesProviderNamesMigratesToMenuBarDisplay() throws {
+        let url = temporaryConfigURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"providers":{"codex":{"isEnabled":true,"executablePath":"/x"},"cursor":{"isEnabled":true,"stateDatabasePath":"/y"},"devin":{"isEnabled":true,"stateDatabasePath":"/z"},"openCodeGo":{"isEnabled":true,"configPath":"/w"}},"privacy":{"hidesProviderNames":true}}"#.utf8).write(to: url)
+
+        let store = ResetStatConfigurationStore(url: url)
+
+        #expect(store.configuration.privacy.menuBarDisplay == .hidden)
+        #expect(store.configuration.privacy.hidesProviderNames == true)
+    }
+
+    @Test("Legacy visible config migrates to logos menu bar display")
+    func legacyVisibleConfigMigratesToLogos() throws {
+        let url = temporaryConfigURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"providers":{"codex":{"isEnabled":true,"executablePath":"/x"},"cursor":{"isEnabled":true,"stateDatabasePath":"/y"},"devin":{"isEnabled":true,"stateDatabasePath":"/z"},"openCodeGo":{"isEnabled":true,"configPath":"/w"}},"privacy":{"hidesProviderNames":false}}"#.utf8).write(to: url)
+
+        let store = ResetStatConfigurationStore(url: url)
+
+        #expect(store.configuration.privacy.menuBarDisplay == .logos)
+        #expect(store.configuration.privacy.hidesProviderNames == false)
     }
 
     @Test("Bad JSON is preserved and defaults are used")

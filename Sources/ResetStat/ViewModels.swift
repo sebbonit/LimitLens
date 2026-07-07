@@ -62,6 +62,7 @@ struct MenuBarProviderIndicator: Identifiable, Equatable {
     let percentUsed: Double?
     let message: String
     let barGlyph: String
+    let countdownText: String
 
     var id: ProviderTab { tab }
 }
@@ -74,6 +75,7 @@ struct MenuBarStatusSnapshot: Equatable {
     let accessibilityLabel: String
     let isRefreshing: Bool
     let hidesProviderNames: Bool
+    let menuBarDisplay: MenuBarDisplay
 }
 
 private struct LimitCandidate {
@@ -214,6 +216,10 @@ final class UsageViewModel: ObservableObject {
         configuration.privacy.hidesProviderNames
     }
 
+    var menuBarDisplay: MenuBarDisplay {
+        configuration.privacy.menuBarDisplay
+    }
+
     func updateConfiguration(_ update: (inout ResetStatConfiguration) -> Void) {
         update(&configuration)
         configurationStore?.configuration = configuration
@@ -256,7 +262,8 @@ final class UsageViewModel: ObservableObject {
             helpText: helpText,
             accessibilityLabel: helpText,
             isRefreshing: isRefreshing,
-            hidesProviderNames: hidesProviderNames
+            hidesProviderNames: hidesProviderNames,
+            menuBarDisplay: menuBarDisplay
         )
     }
 
@@ -483,8 +490,23 @@ final class UsageViewModel: ObservableObject {
             state: state,
             percentUsed: summary.percentUsed,
             message: menuBarMessage(for: summary, state: state),
-            barGlyph: barGlyph(for: state, percentUsed: summary.percentUsed)
+            barGlyph: barGlyph(for: state, percentUsed: summary.percentUsed),
+            countdownText: menuBarCountdownText(for: summary, state: state)
         )
+    }
+
+    private func menuBarCountdownText(
+        for summary: ProviderUsageSummary,
+        state: MenuBarIndicatorState
+    ) -> String {
+        switch state {
+        case .loading:
+            return "·"
+        case .unavailable:
+            return "?"
+        case .healthy, .warning, .critical, .stale:
+            return UsageFormatting.compactCountdownText(date: summary.resetAt, now: now)
+        }
     }
 
     private func menuBarIndicatorState(

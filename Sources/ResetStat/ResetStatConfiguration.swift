@@ -1,5 +1,11 @@
 import Foundation
 
+enum MenuBarDisplay: String, Codable, Equatable, CaseIterable {
+    case logos
+    case countdowns
+    case hidden
+}
+
 struct ResetStatConfiguration: Codable, Equatable {
     var providers: ProviderConfiguration
     var privacy: PrivacyConfiguration
@@ -23,7 +29,7 @@ struct ResetStatConfiguration: Codable, Equatable {
                 configPath: "\(NSHomeDirectory())/.config/opencode/opencode-quota/opencode-go.json"
             )
         ),
-        privacy: PrivacyConfiguration(hidesProviderNames: false)
+        privacy: PrivacyConfiguration(menuBarDisplay: .logos)
     )
 
     static func detected(
@@ -127,7 +133,36 @@ struct OpenCodeGoProviderConfiguration: Codable, Equatable {
 }
 
 struct PrivacyConfiguration: Codable, Equatable {
-    var hidesProviderNames: Bool
+    var menuBarDisplay: MenuBarDisplay
+
+    var hidesProviderNames: Bool {
+        menuBarDisplay == .hidden
+    }
+
+    init(menuBarDisplay: MenuBarDisplay = .logos) {
+        self.menuBarDisplay = menuBarDisplay
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case menuBarDisplay
+        case hidesProviderNames
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let display = try container.decodeIfPresent(MenuBarDisplay.self, forKey: .menuBarDisplay) {
+            self.menuBarDisplay = display
+        } else if try container.decodeIfPresent(Bool.self, forKey: .hidesProviderNames) == true {
+            self.menuBarDisplay = .hidden
+        } else {
+            self.menuBarDisplay = .logos
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(menuBarDisplay, forKey: .menuBarDisplay)
+    }
 }
 
 extension URL {
