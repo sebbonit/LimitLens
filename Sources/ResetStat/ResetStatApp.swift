@@ -644,10 +644,6 @@ struct ResetStatPopover: View {
 
                 if let snapshot = viewModel.openCodeGoSnapshot, snapshot.hasUsage {
                     openCodeGoUsageView(snapshot)
-                    if let billing = snapshot.billing {
-                        Divider()
-                        openCodeGoBillingView(billing)
-                    }
                 } else if case .loading = viewModel.openCodeGoState {
                     StatusLine(icon: "hourglass", color: .secondary, text: "Checking OpenCode Go usage...")
                 } else if case .failed(let message) = viewModel.openCodeGoState {
@@ -1121,70 +1117,6 @@ struct ResetStatPopover: View {
         }
     }
 
-    private func openCodeGoBillingView(_ billing: OpenCodeGoBilling) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Billing")
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                if billing.autoReloadEnabled {
-                    Text("Auto-reload on")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Current balance")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text(billing.balanceText ?? "—")
-                        .font(.callout.weight(.semibold))
-                }
-                Spacer()
-                if let last4 = billing.cardLast4 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "creditcard")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                        Text("•••• \(last4)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            if !billing.payments.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Payments")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    VStack(spacing: 5) {
-                        ForEach(Array(billing.payments.prefix(5).enumerated()), id: \.offset) { _, payment in
-                            HStack(alignment: .firstTextBaseline) {
-                                Text(payment.dateText.isEmpty ? (payment.date.map { UsageFormatting.resetText(date: $0, now: viewModel.now) } ?? "—") : payment.dateText)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                Spacer()
-                                Text(payment.amountText.isEmpty ? "—" : payment.amountText)
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(payment.refunded ? .secondary : .primary)
-                                    .strikethrough(payment.refunded)
-                                if payment.refunded {
-                                    Text("refunded")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     private func openCodeGoUsageBar(title: String, window: OpenCodeGoUsageWindow?, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
