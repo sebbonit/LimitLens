@@ -26,6 +26,9 @@ enum ProviderTab: String, CaseIterable, Identifiable {
     case cursor
     case devin
     case openCodeGo
+    case settings
+
+    static let providerCases: [ProviderTab] = [.codex, .cursor, .devin, .openCodeGo]
 
     var id: String { rawValue }
 
@@ -36,6 +39,7 @@ enum ProviderTab: String, CaseIterable, Identifiable {
         case .cursor: return "Cursor"
         case .devin: return "Devin"
         case .openCodeGo: return "OpenCode Go"
+        case .settings: return "Settings"
         }
     }
 
@@ -46,6 +50,7 @@ enum ProviderTab: String, CaseIterable, Identifiable {
         case .cursor: return "Provider 2"
         case .devin: return "Provider 3"
         case .openCodeGo: return "Provider 4"
+        case .settings: return "Settings"
         }
     }
 
@@ -56,6 +61,7 @@ enum ProviderTab: String, CaseIterable, Identifiable {
         case .cursor: return "cursorarrow"
         case .devin: return "sparkles"
         case .openCodeGo: return "chevron.left.forwardslash.chevron.right"
+        case .settings: return "gearshape"
         }
     }
 }
@@ -69,15 +75,7 @@ struct ResetStatPopover: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             tabBar
-
-            switch viewModel.state {
-            case .idle, .loading:
-                loadingView
-            case .loaded:
-                contentView
-            case .failed(let message):
-                errorView(message: message)
-            }
+            contentView
 
             footer
         }
@@ -124,12 +122,14 @@ struct ResetStatPopover: View {
             desktopQuotaSection
         case .openCodeGo:
             openCodeGoSection
+        case .settings:
+            settingsSection
         }
     }
 
     private var tabBar: some View {
         HStack(spacing: 6) {
-            ForEach(ProviderTab.allCases) { tab in
+            ForEach(viewModel.visibleTabs) { tab in
                 tabButton(for: tab)
             }
         }
@@ -185,6 +185,8 @@ struct ResetStatPopover: View {
                 desktopQuotaSection
             case .openCodeGo:
                 openCodeGoSection
+            case .settings:
+                settingsSection
             }
         }
     }
@@ -208,7 +210,19 @@ struct ResetStatPopover: View {
             }
             Spacer()
             Button {
-                viewModel.hidesProviderNames.toggle()
+                selectedTab = .settings
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(selectedTab == .settings ? Color.accentColor : Color.secondary.opacity(0.75))
+                    .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.borderless)
+            .help("Settings")
+            Button {
+                viewModel.updateConfiguration { configuration in
+                    configuration.privacy.hidesProviderNames.toggle()
+                }
             } label: {
                 Image(systemName: viewModel.hidesProviderNames ? "circle.fill" : "circle")
                     .font(.system(size: 8, weight: .semibold))
@@ -253,9 +267,13 @@ struct ResetStatPopover: View {
 
                 Divider()
 
-                VStack(spacing: 8) {
-                    ForEach(viewModel.providerSummaries) { summary in
-                        overviewRow(summary)
+                if viewModel.providerSummaries.isEmpty {
+                    StatusLine(icon: "slider.horizontal.3", color: .secondary, text: "No providers enabled.")
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(viewModel.providerSummaries) { summary in
+                            overviewRow(summary)
+                        }
                     }
                 }
             }
@@ -278,7 +296,7 @@ struct ResetStatPopover: View {
             return "\(unavailableCount) unavailable"
         }
 
-        return "All clear"
+        return viewModel.providerSummaries.isEmpty ? "Configure providers" : "All clear"
     }
 
     private func overviewRow(_ summary: ProviderUsageSummary) -> some View {
@@ -342,8 +360,15 @@ struct ResetStatPopover: View {
                 columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
                 spacing: 8
             ) {
-                ForEach(viewModel.billingExpiries) { entry in
-                    billingExpiryCell(entry)
+                if viewModel.billingExpiries.isEmpty {
+                    Text("No enabled providers")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    ForEach(viewModel.billingExpiries) { entry in
+                        billingExpiryCell(entry)
+                    }
                 }
             }
         }
@@ -633,6 +658,262 @@ struct ResetStatPopover: View {
 
     private var openCodeGoHeaderDetail: String? {
         viewModel.openCodeGoSnapshot?.source?.nilIfEmpty ?? "Go"
+    }
+
+    private var settingsSection: some View {
+        SectionBlock {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader(title: "Settings", detail: "Providers", systemImage: "gearshape")
+
+                VStack(spacing: 10) {
+                    settingsProviderRow(
+                        tab: .codex,
+                        pathTitle: "Executable",
+                        path: codexPathBinding,
+                        isEnabled: providerEnabledBinding(.codex)
+                    )
+                    settingsProviderRow(
+                        tab: .cursor,
+                        pathTitle: "State database",
+                        path: cursorPathBinding,
+                        isEnabled: providerEnabledBinding(.cursor)
+                    )
+                    settingsProviderRow(
+                        tab: .devin,
+                        pathTitle: "State database",
+                        path: devinPathBinding,
+                        isEnabled: providerEnabledBinding(.devin)
+                    )
+                    settingsProviderRow(
+                        tab: .openCodeGo,
+                        pathTitle: "Config file",
+                        path: openCodeGoPathBinding,
+                        isEnabled: providerEnabledBinding(.openCodeGo)
+                    )
+                }
+
+                Divider()
+
+                Toggle("Hide provider names", isOn: privacyBinding)
+                    .font(.caption.weight(.semibold))
+
+                HStack {
+                    Button("Reset all settings") {
+                        viewModel.resetConfigurationToDefaults()
+                        selectedTab = .overview
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    Spacer()
+                    Text("Saved automatically")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private func settingsProviderRow(
+        tab: ProviderTab,
+        pathTitle: String,
+        path: Binding<String>,
+        isEnabled: Binding<Bool>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Toggle("", isOn: isEnabled)
+                    .toggleStyle(.checkbox)
+                    .labelsHidden()
+                Image(systemName: providerIcon(tab.systemImage))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                Text(providerName(tab.displayName, privateName: tab.privateName))
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Button("Choose...") {
+                    choosePath(for: tab)
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                Button("Reset") {
+                    resetProviderPath(tab)
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+            }
+
+            Text(pathTitle)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            TextField(pathTitle, text: path)
+                .textFieldStyle(.roundedBorder)
+                .font(.caption)
+                .disabled(!isEnabled.wrappedValue)
+
+            if let warning = pathWarning(for: tab) {
+                StatusLine(icon: "exclamationmark.triangle", color: .orange, text: warning)
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.secondary.opacity(0.07))
+        )
+    }
+
+    private var codexPathBinding: Binding<String> {
+        Binding(
+            get: { viewModel.configuration.providers.codex.executablePath },
+            set: { value in
+                viewModel.updateConfiguration { $0.providers.codex.executablePath = value }
+            }
+        )
+    }
+
+    private var cursorPathBinding: Binding<String> {
+        Binding(
+            get: { viewModel.configuration.providers.cursor.stateDatabasePath },
+            set: { value in
+                viewModel.updateConfiguration { $0.providers.cursor.stateDatabasePath = value }
+            }
+        )
+    }
+
+    private var devinPathBinding: Binding<String> {
+        Binding(
+            get: { viewModel.configuration.providers.devin.stateDatabasePath },
+            set: { value in
+                viewModel.updateConfiguration { $0.providers.devin.stateDatabasePath = value }
+            }
+        )
+    }
+
+    private var openCodeGoPathBinding: Binding<String> {
+        Binding(
+            get: { viewModel.configuration.providers.openCodeGo.configPath },
+            set: { value in
+                viewModel.updateConfiguration { $0.providers.openCodeGo.configPath = value }
+            }
+        )
+    }
+
+    private var privacyBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.configuration.privacy.hidesProviderNames },
+            set: { value in
+                viewModel.updateConfiguration { $0.privacy.hidesProviderNames = value }
+            }
+        )
+    }
+
+    private func providerEnabledBinding(_ tab: ProviderTab) -> Binding<Bool> {
+        Binding(
+            get: { viewModel.isProviderEnabled(tab) },
+            set: { value in
+                viewModel.updateConfiguration { configuration in
+                    switch tab {
+                    case .codex:
+                        configuration.providers.codex.isEnabled = value
+                    case .cursor:
+                        configuration.providers.cursor.isEnabled = value
+                    case .devin:
+                        configuration.providers.devin.isEnabled = value
+                    case .openCodeGo:
+                        configuration.providers.openCodeGo.isEnabled = value
+                    case .overview, .settings:
+                        break
+                    }
+                }
+                if !value, selectedTab == tab {
+                    selectedTab = .overview
+                }
+            }
+        )
+    }
+
+    private func choosePath(for tab: ProviderTab) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = tab == .codex
+        panel.canChooseFiles = true
+        panel.prompt = "Choose"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let path: String
+        if tab == .codex, url.pathExtension == "app" {
+            path = url.appendingPathComponent("Contents/Resources/codex").path
+        } else {
+            path = url.path
+        }
+
+        viewModel.updateConfiguration { configuration in
+            switch tab {
+            case .codex:
+                configuration.providers.codex.executablePath = path
+            case .cursor:
+                configuration.providers.cursor.stateDatabasePath = path
+            case .devin:
+                configuration.providers.devin.stateDatabasePath = path
+            case .openCodeGo:
+                configuration.providers.openCodeGo.configPath = path
+            case .overview, .settings:
+                break
+            }
+        }
+    }
+
+    private func resetProviderPath(_ tab: ProviderTab) {
+        viewModel.updateConfiguration { configuration in
+            let defaults = ResetStatConfiguration.defaults
+            switch tab {
+            case .codex:
+                configuration.providers.codex.executablePath = defaults.providers.codex.executablePath
+            case .cursor:
+                configuration.providers.cursor.stateDatabasePath = defaults.providers.cursor.stateDatabasePath
+            case .devin:
+                configuration.providers.devin.stateDatabasePath = defaults.providers.devin.stateDatabasePath
+            case .openCodeGo:
+                configuration.providers.openCodeGo.configPath = defaults.providers.openCodeGo.configPath
+            case .overview, .settings:
+                break
+            }
+        }
+    }
+
+    private func pathWarning(for tab: ProviderTab) -> String? {
+        switch tab {
+        case .codex:
+            let path = viewModel.configuration.providers.codex.executablePath
+            if !FileManager.default.fileExists(atPath: path) {
+                return "Path does not exist."
+            }
+            if !FileManager.default.isExecutableFile(atPath: path) {
+                return "Path is not executable."
+            }
+            return nil
+        case .cursor:
+            return fileWarning(path: viewModel.configuration.providers.cursor.stateDatabasePath)
+        case .devin:
+            return fileWarning(path: viewModel.configuration.providers.devin.stateDatabasePath)
+        case .openCodeGo:
+            let path = viewModel.configuration.providers.openCodeGo.configPath
+            if let warning = fileWarning(path: path) {
+                return warning
+            }
+            return openCodeGoConfigWarning(path: path)
+        case .overview, .settings:
+            return nil
+        }
+    }
+
+    private func fileWarning(path: String) -> String? {
+        FileManager.default.fileExists(atPath: path) ? nil : "Path does not exist."
+    }
+
+    private func openCodeGoConfigWarning(path: String) -> String? {
+        OpenCodeGoProviderConfiguration(isEnabled: true, configPath: path).validationWarning
     }
 
     private func codexHeaderDetail(_ snapshot: ResetStatSnapshot) -> String? {
@@ -1076,19 +1357,29 @@ private struct MenuBarStatusLabel: View {
         Image(nsImage: MenuBarStatusImageRenderer.image(for: status))
             .renderingMode(.original)
             .interpolation(.high)
-            .frame(width: MenuBarStatusImageRenderer.size.width, height: MenuBarStatusImageRenderer.size.height)
+            .frame(
+                width: MenuBarStatusImageRenderer.size(for: status).width,
+                height: MenuBarStatusImageRenderer.size(for: status).height
+            )
             .help(status.helpText)
             .accessibilityLabel(status.accessibilityLabel)
     }
 }
 
 private enum MenuBarStatusImageRenderer {
-    static let size = NSSize(width: 83, height: 18)
+    private static let height: CGFloat = 18
     private static let ringDiameter: CGFloat = 16
     private static let ringLineWidth: CGFloat = 2.5
     private static let ringGap: CGFloat = 5
 
+    static func size(for status: MenuBarStatusSnapshot) -> NSSize {
+        let ringCount = max(status.indicators.count, 1)
+        let width = CGFloat(ringCount) * ringDiameter + CGFloat(ringCount - 1) * ringGap
+        return NSSize(width: width, height: height)
+    }
+
     static func image(for status: MenuBarStatusSnapshot) -> NSImage {
+        let size = size(for: status)
         let image = NSImage(size: size)
         image.isTemplate = false
         image.lockFocus()
@@ -1100,18 +1391,33 @@ private enum MenuBarStatusImageRenderer {
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
-        for (index, indicator) in status.indicators.enumerated() {
-            let x = CGFloat(index) * (ringDiameter + ringGap) + ringDiameter / 2
-            let center = NSPoint(x: x, y: size.height / 2)
-            drawRing(
-                center: center,
-                indicator: indicator,
-                isRefreshing: status.isRefreshing,
-                hidesProviderNames: status.hidesProviderNames
-            )
+        if status.indicators.isEmpty {
+            drawEmptyStateRing(in: size)
+        } else {
+            for (index, indicator) in status.indicators.enumerated() {
+                let x = CGFloat(index) * (ringDiameter + ringGap) + ringDiameter / 2
+                let center = NSPoint(x: x, y: size.height / 2)
+                drawRing(
+                    center: center,
+                    indicator: indicator,
+                    isRefreshing: status.isRefreshing,
+                    hidesProviderNames: status.hidesProviderNames
+                )
+            }
         }
 
         return image
+    }
+
+    private static func drawEmptyStateRing(in size: NSSize) {
+        let center = NSPoint(x: ringDiameter / 2, y: size.height / 2)
+        let radius = ringDiameter / 2 - ringLineWidth / 2
+        let track = NSBezierPath()
+        track.appendArc(withCenter: center, radius: radius, startAngle: 0, endAngle: 360, clockwise: false)
+        track.lineWidth = ringLineWidth
+        track.lineCapStyle = .round
+        NSColor.secondaryLabelColor.withAlphaComponent(0.45).setStroke()
+        track.stroke()
     }
 
     private static func drawRing(
@@ -1288,7 +1594,7 @@ private enum MenuBarStatusImageRenderer {
             text = "D"
         case .openCodeGo:
             text = "</"
-        case .overview:
+        case .overview, .settings:
             text = "S"
         }
 
@@ -1362,7 +1668,7 @@ private enum MenuBarStatusImageRenderer {
             return (NSColor.systemGreen, NSColor.systemMint)
         case .openCodeGo:
             return (NSColor.systemIndigo, NSColor.systemCyan)
-        case .overview:
+        case .overview, .settings:
             return (NSColor.systemGray, NSColor.systemBlue)
         }
     }

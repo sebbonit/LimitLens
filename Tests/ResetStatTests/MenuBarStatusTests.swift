@@ -98,12 +98,47 @@ struct MenuBarStatusTests {
         )
 
         await viewModel.refresh()
-        viewModel.hidesProviderNames = true
+        viewModel.updateConfiguration { $0.privacy.hidesProviderNames = true }
         let status = viewModel.menuBarStatus
 
         #expect(status.hidesProviderNames == true)
         #expect(status.helpText.contains("Provider 1 Daily 42% used (healthy 42%)"))
         #expect(!status.helpText.contains("Codex"))
+    }
+
+    @Test("Disabled providers are omitted from menu bar indicators")
+    func disabledProvidersAreOmitted() async {
+        var configuration = ResetStatConfiguration.defaults
+        configuration.providers.cursor.isEnabled = false
+        configuration.providers.openCodeGo.isEnabled = false
+        let viewModel = makeViewModel(
+            configuration: configuration,
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 12))),
+            cursor: MockCursorUsageClient(result: .success(cursorSnapshot(percent: 25))),
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80)])),
+            openCodeGo: MockOpenCodeGoUsageClient(result: .success(openCodeGoSnapshot(percent: 5)))
+        )
+
+        await viewModel.refresh()
+
+        #expect(viewModel.menuBarStatus.indicators.map(\.tab) == [.codex, .devin])
+        #expect(viewModel.providerSummaries.map(\.tab) == [.codex, .devin])
+    }
+
+    @Test("All disabled providers produce empty menu bar status")
+    func allDisabledProvidersProduceEmptyStatus() async {
+        var configuration = ResetStatConfiguration.defaults
+        configuration.providers.codex.isEnabled = false
+        configuration.providers.cursor.isEnabled = false
+        configuration.providers.devin.isEnabled = false
+        configuration.providers.openCodeGo.isEnabled = false
+        let viewModel = makeViewModel(configuration: configuration)
+
+        await viewModel.refresh()
+
+        #expect(viewModel.menuBarStatus.title == "–")
+        #expect(viewModel.menuBarStatus.helpText == "No providers enabled")
+        #expect(viewModel.menuBarStatus.indicators.isEmpty)
     }
 
     @Test("Indicator order is stable")
@@ -118,6 +153,13 @@ struct MenuBarStatusTests {
         await viewModel.refresh()
 
         #expect(viewModel.menuBarStatus.indicators.map(\.tab) == [.codex, .cursor, .devin, .openCodeGo])
+    }
+
+    @Test("Visible tabs omit settings")
+    func visibleTabsOmitSettings() {
+        let viewModel = makeViewModel()
+
+        #expect(viewModel.visibleTabs == [.overview, .codex, .cursor, .devin, .openCodeGo])
     }
 
     @Test("Refresh calls do not overlap")
@@ -139,12 +181,14 @@ struct MenuBarStatusTests {
     }
 
     private func makeViewModel(
+        configuration: ResetStatConfiguration = .defaults,
         codex: MockCodexUsageClient = MockCodexUsageClient(result: .failure(TestError.unavailable)),
         cursor: MockCursorUsageClient = MockCursorUsageClient(result: .failure(TestError.unavailable)),
         desktopQuota: MockDesktopQuotaClient = MockDesktopQuotaClient(result: .failure(TestError.unavailable)),
         openCodeGo: MockOpenCodeGoUsageClient = MockOpenCodeGoUsageClient(result: .failure(TestError.unavailable))
     ) -> UsageViewModel {
         UsageViewModel(
+            configuration: configuration,
             service: codex,
             cursorService: cursor,
             desktopQuotaService: desktopQuota,

@@ -90,6 +90,7 @@ final class UsageViewModel: ObservableObject {
         case loading
         case loaded
         case failed(String)
+        case disabled
     }
 
     @Published private(set) var snapshot: ResetStatSnapshot?
@@ -101,21 +102,52 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var desktopQuotaState: LoadState = .idle
     @Published private(set) var openCodeGoState: LoadState = .idle
     @Published private(set) var isRefreshing = false
-    @Published var hidesProviderNames = false
+    @Published private(set) var configuration: ResetStatConfiguration
     @Published var now = Date()
 
-    private let service: CodexUsageFetching
-    private let cursorService: CursorUsageFetching
-    private let desktopQuotaService: DesktopQuotaFetching
-    private let openCodeGoService: OpenCodeGoUsageFetching
+    private let configurationStore: ResetStatConfigurationStore?
+    private let service: CodexUsageFetching?
+    private let cursorService: CursorUsageFetching?
+    private let desktopQuotaService: DesktopQuotaFetching?
+    private let openCodeGoService: OpenCodeGoUsageFetching?
     private var didStartLoops = false
 
+    convenience init(configurationStore: ResetStatConfigurationStore = ResetStatConfigurationStore()) {
+        self.init(
+            configurationStore: configurationStore,
+            configuration: configurationStore.configuration,
+            service: nil,
+            cursorService: nil,
+            desktopQuotaService: nil,
+            openCodeGoService: nil
+        )
+    }
+
     init(
-        service: CodexUsageFetching = CodexAppServerClient(),
-        cursorService: CursorUsageFetching = CursorUsageClient(),
-        desktopQuotaService: DesktopQuotaFetching = DesktopQuotaClient(),
-        openCodeGoService: OpenCodeGoUsageFetching = OpenCodeGoUsageClient()
+        configuration: ResetStatConfiguration = .defaults,
+        service: CodexUsageFetching,
+        cursorService: CursorUsageFetching,
+        desktopQuotaService: DesktopQuotaFetching,
+        openCodeGoService: OpenCodeGoUsageFetching
     ) {
+        self.configurationStore = nil
+        self.configuration = configuration
+        self.service = service
+        self.cursorService = cursorService
+        self.desktopQuotaService = desktopQuotaService
+        self.openCodeGoService = openCodeGoService
+    }
+
+    private init(
+        configurationStore: ResetStatConfigurationStore?,
+        configuration: ResetStatConfiguration,
+        service: CodexUsageFetching?,
+        cursorService: CursorUsageFetching?,
+        desktopQuotaService: DesktopQuotaFetching?,
+        openCodeGoService: OpenCodeGoUsageFetching?
+    ) {
+        self.configurationStore = configurationStore
+        self.configuration = configuration
         self.service = service
         self.cursorService = cursorService
         self.desktopQuotaService = desktopQuotaService
@@ -136,20 +168,64 @@ final class UsageViewModel: ObservableObject {
         defer { isRefreshing = false }
 
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.refreshCodex() }
-            group.addTask { await self.refreshCursor() }
-            group.addTask { await self.refreshDesktopQuotas() }
-            group.addTask { await self.refreshOpenCodeGo() }
+            if self.configuration.providers.codex.isEnabled {
+                group.addTask { await self.refreshCodex() }
+            } else {
+                state = .disabled
+                snapshot = nil
+            }
+
+            if self.configuration.providers.cursor.isEnabled {
+                group.addTask { await self.refreshCursor() }
+            } else {
+                cursorState = .disabled
+                cursorSnapshot = nil
+            }
+
+            if self.configuration.providers.devin.isEnabled {
+                group.addTask { await self.refreshDesktopQuotas() }
+            } else {
+                desktopQuotaState = .disabled
+                desktopQuotaSnapshots = []
+            }
+
+            if self.configuration.providers.openCodeGo.isEnabled {
+                group.addTask { await self.refreshOpenCodeGo() }
+            } else {
+                openCodeGoState = .disabled
+                openCodeGoSnapshot = nil
+            }
         }
     }
 
     var providerSummaries: [ProviderUsageSummary] {
-        [
-            codexSummary,
-            cursorSummary,
-            desktopQuotaSummary,
-            openCodeGoSummary
-        ]
+        enabledProviderTabs.compactMap(summary(for:))
+    }
+
+    var enabledProviderTabs: [ProviderTab] {
+        ProviderTab.providerCases.filter(isProviderEnabled)
+    }
+
+    var visibleTabs: [ProviderTab] {
+        [.overview] + enabledProviderTabs
+    }
+
+    var hidesProviderNames: Bool {
+        configuration.privacy.hidesProviderNames
+    }
+
+    func updateConfiguration(_ update: (inout ResetStatConfiguration) -> Void) {
+        update(&configuration)
+        configurationStore?.configuration = configuration
+        configurationStore?.save()
+        applyDisabledStates()
+    }
+
+    func resetConfigurationToDefaults() {
+        configuration = .defaults
+        configurationStore?.configuration = configuration
+        configurationStore?.save()
+        applyDisabledStates()
     }
 
     var menuBarStatus: MenuBarStatusSnapshot {
@@ -165,12 +241,14 @@ final class UsageViewModel: ObservableObject {
             }
         }
 
-        let title = indicators.map(\.barGlyph).joined(separator: " ")
+        let title = indicators.isEmpty ? "–" : indicators.map(\.barGlyph).joined(separator: " ")
         let severity = hasUnavailableOrStale
             ? .unavailable
             : (summaries.map(\.severity).max() ?? .healthy)
 
-        let helpText = indicators.map { indicatorHelpText($0) }.joined(separator: ", ")
+        let helpText = indicators.isEmpty
+            ? "No providers enabled"
+            : indicators.map { indicatorHelpText($0) }.joined(separator: ", ")
         return MenuBarStatusSnapshot(
             title: title,
             severity: severity,
@@ -194,12 +272,20 @@ final class UsageViewModel: ObservableObject {
     }
 
     var billingExpiries: [BillingExpiry] {
-        [
-            codexBillingExpiry,
-            cursorBillingExpiry,
-            devinBillingExpiry,
-            openCodeGoBillingExpiry
-        ]
+        enabledProviderTabs.compactMap { tab in
+            switch tab {
+            case .codex:
+                return codexBillingExpiry
+            case .cursor:
+                return cursorBillingExpiry
+            case .devin:
+                return devinBillingExpiry
+            case .openCodeGo:
+                return openCodeGoBillingExpiry
+            case .overview, .settings:
+                return nil
+            }
+        }
     }
 
     private var codexBillingExpiry: BillingExpiry {
@@ -265,7 +351,7 @@ final class UsageViewModel: ObservableObject {
     private func refreshCodex() async {
         state = snapshot == nil ? .loading : .loaded
         do {
-            snapshot = try await service.fetchSnapshot()
+            snapshot = try await codexService().fetchSnapshot()
             state = .loaded
         } catch let error as CodexUsageError {
             state = .failed(error.localizedDescription)
@@ -277,7 +363,7 @@ final class UsageViewModel: ObservableObject {
     private func refreshCursor() async {
         cursorState = cursorSnapshot == nil ? .loading : .loaded
         do {
-            cursorSnapshot = try await cursorService.fetchSnapshot()
+            cursorSnapshot = try await cursorUsageService().fetchSnapshot()
             cursorState = .loaded
         } catch let error as CursorUsageError {
             cursorState = .failed(error.localizedDescription)
@@ -289,7 +375,7 @@ final class UsageViewModel: ObservableObject {
     private func refreshDesktopQuotas() async {
         desktopQuotaState = desktopQuotaSnapshots.isEmpty ? .loading : .loaded
         do {
-            let snapshots = try await desktopQuotaService.fetchSnapshots()
+            let snapshots = try await desktopQuotaUsageService().fetchSnapshots()
             desktopQuotaSnapshots = snapshots
             desktopQuotaState = snapshots.isEmpty ? .failed("Devin quota cache unavailable.") : .loaded
         } catch {
@@ -300,12 +386,89 @@ final class UsageViewModel: ObservableObject {
     private func refreshOpenCodeGo() async {
         openCodeGoState = openCodeGoSnapshot == nil ? .loading : .loaded
         do {
-            openCodeGoSnapshot = try await openCodeGoService.fetchSnapshot()
+            openCodeGoSnapshot = try await openCodeGoUsageService().fetchSnapshot()
             openCodeGoState = .loaded
         } catch let error as CodexUsageError {
             openCodeGoState = .failed(error.localizedDescription)
         } catch {
             openCodeGoState = .failed("OpenCode Go usage is temporarily unavailable.")
+        }
+    }
+
+    private func codexService() -> CodexUsageFetching {
+        service ?? CodexAppServerClient(executablePath: configuration.providers.codex.executablePath)
+    }
+
+    private func cursorUsageService() -> CursorUsageFetching {
+        cursorService ?? CursorUsageClient(stateDatabasePath: configuration.providers.cursor.stateDatabasePath)
+    }
+
+    private func desktopQuotaUsageService() -> DesktopQuotaFetching {
+        if let desktopQuotaService {
+            return desktopQuotaService
+        }
+        let source = DesktopQuotaSource(
+            appName: "Devin Desktop",
+            databasePath: configuration.providers.devin.stateDatabasePath,
+            keyQueries: [
+                "SELECT value FROM ItemTable WHERE key='windsurfAuthStatus' LIMIT 1;",
+                "SELECT value FROM ItemTable WHERE key LIKE 'windsurf.reactSettings.cachedPlanInfoData:%' ORDER BY key LIMIT 1;",
+                "SELECT value FROM ItemTable WHERE key='windsurf.settings.cachedPlanInfo' LIMIT 1;"
+            ]
+        )
+        return DesktopQuotaClient(sources: [source], liveDatabasePath: configuration.providers.devin.stateDatabasePath)
+    }
+
+    private func openCodeGoUsageService() -> OpenCodeGoUsageFetching {
+        openCodeGoService ?? OpenCodeGoUsageClient(configPath: configuration.providers.openCodeGo.configPath)
+    }
+
+    private func summary(for tab: ProviderTab) -> ProviderUsageSummary? {
+        switch tab {
+        case .codex:
+            return codexSummary
+        case .cursor:
+            return cursorSummary
+        case .devin:
+            return desktopQuotaSummary
+        case .openCodeGo:
+            return openCodeGoSummary
+        case .overview, .settings:
+            return nil
+        }
+    }
+
+    func isProviderEnabled(_ tab: ProviderTab) -> Bool {
+        switch tab {
+        case .codex:
+            return configuration.providers.codex.isEnabled
+        case .cursor:
+            return configuration.providers.cursor.isEnabled
+        case .devin:
+            return configuration.providers.devin.isEnabled
+        case .openCodeGo:
+            return configuration.providers.openCodeGo.isEnabled
+        case .overview, .settings:
+            return true
+        }
+    }
+
+    private func applyDisabledStates() {
+        if !configuration.providers.codex.isEnabled {
+            state = .disabled
+            snapshot = nil
+        }
+        if !configuration.providers.cursor.isEnabled {
+            cursorState = .disabled
+            cursorSnapshot = nil
+        }
+        if !configuration.providers.devin.isEnabled {
+            desktopQuotaState = .disabled
+            desktopQuotaSnapshots = []
+        }
+        if !configuration.providers.openCodeGo.isEnabled {
+            openCodeGoState = .disabled
+            openCodeGoSnapshot = nil
         }
     }
 
@@ -336,6 +499,8 @@ final class UsageViewModel: ObservableObject {
             return hasSnapshot ? .stale(severity) : .unavailable
         case .loaded:
             return menuBarIndicatorState(for: severity)
+        case .disabled:
+            return .unavailable
         }
     }
 
@@ -476,7 +641,7 @@ final class UsageViewModel: ObservableObject {
             return desktopQuotaState
         case .openCodeGo:
             return openCodeGoState
-        case .overview:
+        case .overview, .settings:
             return .loaded
         }
     }
@@ -491,7 +656,7 @@ final class UsageViewModel: ObservableObject {
             return !desktopQuotaSnapshots.isEmpty
         case .openCodeGo:
             return openCodeGoSnapshot?.hasUsage == true
-        case .overview:
+        case .overview, .settings:
             return true
         }
     }
@@ -639,11 +804,16 @@ final class UsageViewModel: ObservableObject {
             return "Loading"
         case .loaded, .failed:
             return unavailable
+        case .disabled:
+            return "Disabled"
         }
     }
 
     private func severity(for state: LoadState) -> UsageSeverity {
         if case .failed = state {
+            return .unavailable
+        }
+        if case .disabled = state {
             return .unavailable
         }
         return .healthy
