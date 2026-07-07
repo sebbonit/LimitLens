@@ -21,6 +21,10 @@ let package = Package(
             name: "ResetStatCoreTests",
             dependencies: ["ResetStatCore"],
             resources: [.copy("Fixtures")]
+        ),
+        .testTarget(
+            name: "ResetStatTests",
+            dependencies: ["ResetStat"]
         )
     ]
 )

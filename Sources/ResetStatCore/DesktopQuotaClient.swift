@@ -6,6 +6,7 @@ public protocol DesktopQuotaFetching: Sendable {
 
 public final class DesktopQuotaClient: DesktopQuotaFetching, @unchecked Sendable {
     private let sources: [DesktopQuotaSource]
+    private let liveDatabasePath: String
 
     public init(
         sources: [DesktopQuotaSource] = [
@@ -18,17 +19,19 @@ public final class DesktopQuotaClient: DesktopQuotaFetching, @unchecked Sendable
                     "SELECT value FROM ItemTable WHERE key='windsurf.settings.cachedPlanInfo' LIMIT 1;"
                 ]
             )
-        ]
+        ],
+        liveDatabasePath: String? = nil
     ) {
         self.sources = sources
+        self.liveDatabasePath = liveDatabasePath ?? sources.first?.databasePath ?? "\(NSHomeDirectory())/Library/Application Support/Devin/User/globalStorage/state.vscdb"
     }
 
     public func fetchSnapshots() async throws -> [DesktopQuotaSnapshot] {
-        if let remoteSnapshot = try? await DevinRemoteQuotaClient().fetchSnapshot() {
+        if let remoteSnapshot = try? await DevinRemoteQuotaClient(databasePath: liveDatabasePath).fetchSnapshot() {
             return [remoteSnapshot]
         }
 
-        if let liveSnapshot = try? await DevinLanguageServerQuotaClient().fetchSnapshot() {
+        if let liveSnapshot = try? await DevinLanguageServerQuotaClient(databasePath: liveDatabasePath).fetchSnapshot() {
             return [liveSnapshot]
         }
 

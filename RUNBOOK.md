@@ -12,6 +12,27 @@ swift run ResetStat
 
 This starts the menu bar app directly from SwiftPM. Look for the `S` icon in the macOS menu bar. The app has no Dock icon.
 
+## Configure Providers
+
+On first launch, ResetStat auto-detects common provider paths and enables only the providers it finds. Open the menu bar popover and click the gear icon in the footer to change settings.
+
+Settings are saved automatically to:
+
+```text
+~/Library/Application Support/ResetStat/config.json
+```
+
+You can:
+
+- enable or disable Codex, Cursor, Devin, and OpenCode Go
+- set the Codex executable path
+- set Cursor and Devin `state.vscdb` paths
+- set the OpenCode Go config path
+- hide provider names
+- reset all settings to defaults
+
+Disabled providers are not fetched, do not appear in the overview, and do not appear in the menu bar status rings.
+
 ## Test
 
 ```sh
@@ -70,3 +91,5 @@ The script writes:
 ```
 
 Restart ResetStat or click refresh in the popover after configuring it.
+
+You can also point ResetStat to a different OpenCode Go config file from the Settings tab.

@@ -34,14 +34,6 @@ struct ProviderUsageSummary: Identifiable {
     let severity: UsageSeverity
 
     var id: ProviderTab { tab }
-
-    var menuTitle: String {
-        if severity == .unavailable {
-            return "S ?"
-        }
-        guard let percentUsed, severity >= .warning else { return "S" }
-        return "S \(Int(percentUsed.rounded()))%"
-    }
 }
 
 struct BillingExpiry: Identifiable {
@@ -53,6 +45,35 @@ struct BillingExpiry: Identifiable {
     let urgency: UsageFormatting.ExpiryUrgency
 
     var id: ProviderTab { tab }
+}
+
+enum MenuBarIndicatorState: Equatable {
+    case loading
+    case healthy
+    case warning
+    case critical
+    case stale(UsageSeverity)
+    case unavailable
+}
+
+struct MenuBarProviderIndicator: Identifiable, Equatable {
+    let tab: ProviderTab
+    let state: MenuBarIndicatorState
+    let percentUsed: Double?
+    let message: String
+    let barGlyph: String
+
+    var id: ProviderTab { tab }
+}
+
+struct MenuBarStatusSnapshot: Equatable {
+    let title: String
+    let severity: UsageSeverity
+    let indicators: [MenuBarProviderIndicator]
+    let helpText: String
+    let accessibilityLabel: String
+    let isRefreshing: Bool
+    let hidesProviderNames: Bool
 }
 
 private struct LimitCandidate {
@@ -69,6 +90,7 @@ final class UsageViewModel: ObservableObject {
         case loading
         case loaded
         case failed(String)
+        case disabled
     }
 
     @Published private(set) var snapshot: ResetStatSnapshot?
@@ -79,21 +101,53 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var cursorState: LoadState = .idle
     @Published private(set) var desktopQuotaState: LoadState = .idle
     @Published private(set) var openCodeGoState: LoadState = .idle
-    @Published var hidesProviderNames = false
+    @Published private(set) var isRefreshing = false
+    @Published private(set) var configuration: ResetStatConfiguration
     @Published var now = Date()
 
-    private let service: CodexUsageFetching
-    private let cursorService: CursorUsageFetching
-    private let desktopQuotaService: DesktopQuotaFetching
-    private let openCodeGoService: OpenCodeGoUsageFetching
+    private let configurationStore: ResetStatConfigurationStore?
+    private let service: CodexUsageFetching?
+    private let cursorService: CursorUsageFetching?
+    private let desktopQuotaService: DesktopQuotaFetching?
+    private let openCodeGoService: OpenCodeGoUsageFetching?
     private var didStartLoops = false
 
+    convenience init(configurationStore: ResetStatConfigurationStore = ResetStatConfigurationStore()) {
+        self.init(
+            configurationStore: configurationStore,
+            configuration: configurationStore.configuration,
+            service: nil,
+            cursorService: nil,
+            desktopQuotaService: nil,
+            openCodeGoService: nil
+        )
+    }
+
     init(
-        service: CodexUsageFetching = CodexAppServerClient(),
-        cursorService: CursorUsageFetching = CursorUsageClient(),
-        desktopQuotaService: DesktopQuotaFetching = DesktopQuotaClient(),
-        openCodeGoService: OpenCodeGoUsageFetching = OpenCodeGoUsageClient()
+        configuration: ResetStatConfiguration = .defaults,
+        service: CodexUsageFetching,
+        cursorService: CursorUsageFetching,
+        desktopQuotaService: DesktopQuotaFetching,
+        openCodeGoService: OpenCodeGoUsageFetching
     ) {
+        self.configurationStore = nil
+        self.configuration = configuration
+        self.service = service
+        self.cursorService = cursorService
+        self.desktopQuotaService = desktopQuotaService
+        self.openCodeGoService = openCodeGoService
+    }
+
+    private init(
+        configurationStore: ResetStatConfigurationStore?,
+        configuration: ResetStatConfiguration,
+        service: CodexUsageFetching?,
+        cursorService: CursorUsageFetching?,
+        desktopQuotaService: DesktopQuotaFetching?,
+        openCodeGoService: OpenCodeGoUsageFetching?
+    ) {
+        self.configurationStore = configurationStore
+        self.configuration = configuration
         self.service = service
         self.cursorService = cursorService
         self.desktopQuotaService = desktopQuotaService
@@ -109,21 +163,101 @@ final class UsageViewModel: ObservableObject {
     }
 
     func refresh() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.refreshCodex() }
-            group.addTask { await self.refreshCursor() }
-            group.addTask { await self.refreshDesktopQuotas() }
-            group.addTask { await self.refreshOpenCodeGo() }
+            if self.configuration.providers.codex.isEnabled {
+                group.addTask { await self.refreshCodex() }
+            } else {
+                state = .disabled
+                snapshot = nil
+            }
+
+            if self.configuration.providers.cursor.isEnabled {
+                group.addTask { await self.refreshCursor() }
+            } else {
+                cursorState = .disabled
+                cursorSnapshot = nil
+            }
+
+            if self.configuration.providers.devin.isEnabled {
+                group.addTask { await self.refreshDesktopQuotas() }
+            } else {
+                desktopQuotaState = .disabled
+                desktopQuotaSnapshots = []
+            }
+
+            if self.configuration.providers.openCodeGo.isEnabled {
+                group.addTask { await self.refreshOpenCodeGo() }
+            } else {
+                openCodeGoState = .disabled
+                openCodeGoSnapshot = nil
+            }
         }
     }
 
     var providerSummaries: [ProviderUsageSummary] {
-        [
-            codexSummary,
-            cursorSummary,
-            desktopQuotaSummary,
-            openCodeGoSummary
-        ]
+        enabledProviderTabs.compactMap(summary(for:))
+    }
+
+    var enabledProviderTabs: [ProviderTab] {
+        ProviderTab.providerCases.filter(isProviderEnabled)
+    }
+
+    var visibleTabs: [ProviderTab] {
+        [.overview] + enabledProviderTabs
+    }
+
+    var hidesProviderNames: Bool {
+        configuration.privacy.hidesProviderNames
+    }
+
+    func updateConfiguration(_ update: (inout ResetStatConfiguration) -> Void) {
+        update(&configuration)
+        configurationStore?.configuration = configuration
+        configurationStore?.save()
+        applyDisabledStates()
+    }
+
+    func resetConfigurationToDefaults() {
+        configuration = .defaults
+        configurationStore?.configuration = configuration
+        configurationStore?.save()
+        applyDisabledStates()
+    }
+
+    var menuBarStatus: MenuBarStatusSnapshot {
+        let summaries = providerSummaries
+        let indicators = summaries.map { menuBarIndicator(for: $0) }
+
+        let hasUnavailableOrStale = indicators.contains { indicator in
+            switch indicator.state {
+            case .stale, .unavailable:
+                return true
+            case .loading, .healthy, .warning, .critical:
+                return false
+            }
+        }
+
+        let title = indicators.isEmpty ? "–" : indicators.map(\.barGlyph).joined(separator: " ")
+        let severity = hasUnavailableOrStale
+            ? .unavailable
+            : (summaries.map(\.severity).max() ?? .healthy)
+
+        let helpText = indicators.isEmpty
+            ? "No providers enabled"
+            : indicators.map { indicatorHelpText($0) }.joined(separator: ", ")
+        return MenuBarStatusSnapshot(
+            title: title,
+            severity: severity,
+            indicators: indicators,
+            helpText: helpText,
+            accessibilityLabel: helpText,
+            isRefreshing: isRefreshing,
+            hidesProviderNames: hidesProviderNames
+        )
     }
 
     var prioritySummary: ProviderUsageSummary? {
@@ -138,12 +272,20 @@ final class UsageViewModel: ObservableObject {
     }
 
     var billingExpiries: [BillingExpiry] {
-        [
-            codexBillingExpiry,
-            cursorBillingExpiry,
-            devinBillingExpiry,
-            openCodeGoBillingExpiry
-        ]
+        enabledProviderTabs.compactMap { tab in
+            switch tab {
+            case .codex:
+                return codexBillingExpiry
+            case .cursor:
+                return cursorBillingExpiry
+            case .devin:
+                return devinBillingExpiry
+            case .openCodeGo:
+                return openCodeGoBillingExpiry
+            case .overview, .settings:
+                return nil
+            }
+        }
     }
 
     private var codexBillingExpiry: BillingExpiry {
@@ -206,18 +348,10 @@ final class UsageViewModel: ObservableObject {
         )
     }
 
-    var menuBarTitle: String {
-        prioritySummary?.menuTitle ?? "S"
-    }
-
-    var menuBarSeverity: UsageSeverity {
-        prioritySummary?.severity ?? .healthy
-    }
-
     private func refreshCodex() async {
         state = snapshot == nil ? .loading : .loaded
         do {
-            snapshot = try await service.fetchSnapshot()
+            snapshot = try await codexService().fetchSnapshot()
             state = .loaded
         } catch let error as CodexUsageError {
             state = .failed(error.localizedDescription)
@@ -229,7 +363,7 @@ final class UsageViewModel: ObservableObject {
     private func refreshCursor() async {
         cursorState = cursorSnapshot == nil ? .loading : .loaded
         do {
-            cursorSnapshot = try await cursorService.fetchSnapshot()
+            cursorSnapshot = try await cursorUsageService().fetchSnapshot()
             cursorState = .loaded
         } catch let error as CursorUsageError {
             cursorState = .failed(error.localizedDescription)
@@ -241,7 +375,7 @@ final class UsageViewModel: ObservableObject {
     private func refreshDesktopQuotas() async {
         desktopQuotaState = desktopQuotaSnapshots.isEmpty ? .loading : .loaded
         do {
-            let snapshots = try await desktopQuotaService.fetchSnapshots()
+            let snapshots = try await desktopQuotaUsageService().fetchSnapshots()
             desktopQuotaSnapshots = snapshots
             desktopQuotaState = snapshots.isEmpty ? .failed("Devin quota cache unavailable.") : .loaded
         } catch {
@@ -252,12 +386,278 @@ final class UsageViewModel: ObservableObject {
     private func refreshOpenCodeGo() async {
         openCodeGoState = openCodeGoSnapshot == nil ? .loading : .loaded
         do {
-            openCodeGoSnapshot = try await openCodeGoService.fetchSnapshot()
+            openCodeGoSnapshot = try await openCodeGoUsageService().fetchSnapshot()
             openCodeGoState = .loaded
         } catch let error as CodexUsageError {
             openCodeGoState = .failed(error.localizedDescription)
         } catch {
             openCodeGoState = .failed("OpenCode Go usage is temporarily unavailable.")
+        }
+    }
+
+    private func codexService() -> CodexUsageFetching {
+        service ?? CodexAppServerClient(executablePath: configuration.providers.codex.executablePath)
+    }
+
+    private func cursorUsageService() -> CursorUsageFetching {
+        cursorService ?? CursorUsageClient(stateDatabasePath: configuration.providers.cursor.stateDatabasePath)
+    }
+
+    private func desktopQuotaUsageService() -> DesktopQuotaFetching {
+        if let desktopQuotaService {
+            return desktopQuotaService
+        }
+        let source = DesktopQuotaSource(
+            appName: "Devin Desktop",
+            databasePath: configuration.providers.devin.stateDatabasePath,
+            keyQueries: [
+                "SELECT value FROM ItemTable WHERE key='windsurfAuthStatus' LIMIT 1;",
+                "SELECT value FROM ItemTable WHERE key LIKE 'windsurf.reactSettings.cachedPlanInfoData:%' ORDER BY key LIMIT 1;",
+                "SELECT value FROM ItemTable WHERE key='windsurf.settings.cachedPlanInfo' LIMIT 1;"
+            ]
+        )
+        return DesktopQuotaClient(sources: [source], liveDatabasePath: configuration.providers.devin.stateDatabasePath)
+    }
+
+    private func openCodeGoUsageService() -> OpenCodeGoUsageFetching {
+        openCodeGoService ?? OpenCodeGoUsageClient(configPath: configuration.providers.openCodeGo.configPath)
+    }
+
+    private func summary(for tab: ProviderTab) -> ProviderUsageSummary? {
+        switch tab {
+        case .codex:
+            return codexSummary
+        case .cursor:
+            return cursorSummary
+        case .devin:
+            return desktopQuotaSummary
+        case .openCodeGo:
+            return openCodeGoSummary
+        case .overview, .settings:
+            return nil
+        }
+    }
+
+    func isProviderEnabled(_ tab: ProviderTab) -> Bool {
+        switch tab {
+        case .codex:
+            return configuration.providers.codex.isEnabled
+        case .cursor:
+            return configuration.providers.cursor.isEnabled
+        case .devin:
+            return configuration.providers.devin.isEnabled
+        case .openCodeGo:
+            return configuration.providers.openCodeGo.isEnabled
+        case .overview, .settings:
+            return true
+        }
+    }
+
+    private func applyDisabledStates() {
+        if !configuration.providers.codex.isEnabled {
+            state = .disabled
+            snapshot = nil
+        }
+        if !configuration.providers.cursor.isEnabled {
+            cursorState = .disabled
+            cursorSnapshot = nil
+        }
+        if !configuration.providers.devin.isEnabled {
+            desktopQuotaState = .disabled
+            desktopQuotaSnapshots = []
+        }
+        if !configuration.providers.openCodeGo.isEnabled {
+            openCodeGoState = .disabled
+            openCodeGoSnapshot = nil
+        }
+    }
+
+    private func menuBarIndicator(for summary: ProviderUsageSummary) -> MenuBarProviderIndicator {
+        let state = menuBarIndicatorState(
+            loadState: loadState(for: summary.tab),
+            hasSnapshot: hasUsableSnapshot(for: summary.tab),
+            severity: summary.severity
+        )
+        return MenuBarProviderIndicator(
+            tab: summary.tab,
+            state: state,
+            percentUsed: summary.percentUsed,
+            message: menuBarMessage(for: summary, state: state),
+            barGlyph: barGlyph(for: state, percentUsed: summary.percentUsed)
+        )
+    }
+
+    private func menuBarIndicatorState(
+        loadState: LoadState,
+        hasSnapshot: Bool,
+        severity: UsageSeverity
+    ) -> MenuBarIndicatorState {
+        switch loadState {
+        case .idle, .loading:
+            return hasSnapshot ? menuBarIndicatorState(for: severity) : .loading
+        case .failed:
+            return hasSnapshot ? .stale(severity) : .unavailable
+        case .loaded:
+            return menuBarIndicatorState(for: severity)
+        case .disabled:
+            return .unavailable
+        }
+    }
+
+    private func menuBarIndicatorState(for severity: UsageSeverity) -> MenuBarIndicatorState {
+        switch severity {
+        case .critical:
+            return .critical
+        case .warning:
+            return .warning
+        case .healthy:
+            return .healthy
+        case .unavailable:
+            return .unavailable
+        }
+    }
+
+    private func menuBarMessage(for summary: ProviderUsageSummary, state: MenuBarIndicatorState) -> String {
+        let name = hidesProviderNames ? summary.tab.privateName : summary.tab.displayName
+        let stateDetail = menuBarStateDetail(state, percentUsed: summary.percentUsed)
+        switch state {
+        case .loading, .unavailable:
+            return "\(name) \(stateDetail)"
+        case .healthy, .warning, .critical, .stale:
+            return "\(name) \(providerSafeDetail(summary.detail)) (\(stateDetail)), \(providerSafeDetail(summary.subdetail))"
+        }
+    }
+
+    private func indicatorHelpText(_ indicator: MenuBarProviderIndicator) -> String {
+        guard isRefreshing, indicatorShowsCachedData(indicator.state) else {
+            return indicator.message
+        }
+
+        let name = hidesProviderNames ? indicator.tab.privateName : indicator.tab.displayName
+        let detail = menuBarStateDetail(indicator.state, percentUsed: indicator.percentUsed, isRefreshing: true)
+        return "\(name) \(detail)"
+    }
+
+    private func menuBarStateDetail(
+        _ state: MenuBarIndicatorState,
+        percentUsed: Double?,
+        isRefreshing: Bool = false
+    ) -> String {
+        let prefix = isRefreshing ? "refreshing " : ""
+        switch state {
+        case .loading:
+            return "loading"
+        case .healthy:
+            return "\(prefix)healthy\(percentSuffix(percentUsed))"
+        case .warning:
+            return "\(prefix)warning\(percentSuffix(percentUsed))"
+        case .critical:
+            return "\(prefix)critical\(percentSuffix(percentUsed))"
+        case .stale(let severity):
+            return "stale \(severityText(severity))\(percentSuffix(percentUsed))"
+        case .unavailable:
+            return "unavailable"
+        }
+    }
+
+    private func indicatorShowsCachedData(_ state: MenuBarIndicatorState) -> Bool {
+        switch state {
+        case .healthy, .warning, .critical:
+            return true
+        case .loading, .stale, .unavailable:
+            return false
+        }
+    }
+
+    private func percentSuffix(_ percentUsed: Double?) -> String {
+        guard let percentUsed else { return "" }
+        return " \(Int(percentUsed.rounded()))%"
+    }
+
+    private func providerSafeDetail(_ detail: String) -> String {
+        guard hidesProviderNames else { return detail }
+        return detail
+            .replacingOccurrences(of: "Codex", with: "Provider")
+            .replacingOccurrences(of: "Cursor", with: "Provider")
+            .replacingOccurrences(of: "Devin", with: "Provider")
+            .replacingOccurrences(of: "OpenCode Go", with: "Provider")
+            .replacingOccurrences(of: "OpenCode", with: "Provider")
+    }
+
+    private func barGlyph(for state: MenuBarIndicatorState, percentUsed: Double?) -> String {
+        switch state {
+        case .loading:
+            return "·"
+        case .unavailable:
+            return "?"
+        case .healthy, .warning, .critical, .stale:
+            return usageBarGlyph(percentUsed: percentUsed)
+        }
+    }
+
+    private func usageBarGlyph(percentUsed: Double?) -> String {
+        guard let percentUsed else { return "?" }
+        let clamped = max(0, min(100, percentUsed))
+        switch clamped {
+        case 0..<12.5:
+            return "▁"
+        case 12.5..<25:
+            return "▂"
+        case 25..<37.5:
+            return "▃"
+        case 37.5..<50:
+            return "▄"
+        case 50..<62.5:
+            return "▅"
+        case 62.5..<75:
+            return "▆"
+        case 75..<87.5:
+            return "▇"
+        default:
+            return "█"
+        }
+    }
+
+    private func severityText(_ severity: UsageSeverity) -> String {
+        switch severity {
+        case .critical:
+            return "critical"
+        case .warning:
+            return "warning"
+        case .healthy:
+            return "healthy"
+        case .unavailable:
+            return "unavailable"
+        }
+    }
+
+    private func loadState(for tab: ProviderTab) -> LoadState {
+        switch tab {
+        case .codex:
+            return state
+        case .cursor:
+            return cursorState
+        case .devin:
+            return desktopQuotaState
+        case .openCodeGo:
+            return openCodeGoState
+        case .overview, .settings:
+            return .loaded
+        }
+    }
+
+    private func hasUsableSnapshot(for tab: ProviderTab) -> Bool {
+        switch tab {
+        case .codex:
+            return snapshot != nil
+        case .cursor:
+            return cursorSnapshot != nil
+        case .devin:
+            return !desktopQuotaSnapshots.isEmpty
+        case .openCodeGo:
+            return openCodeGoSnapshot?.hasUsage == true
+        case .overview, .settings:
+            return true
         }
     }
 
@@ -404,11 +804,16 @@ final class UsageViewModel: ObservableObject {
             return "Loading"
         case .loaded, .failed:
             return unavailable
+        case .disabled:
+            return "Disabled"
         }
     }
 
     private func severity(for state: LoadState) -> UsageSeverity {
         if case .failed = state {
+            return .unavailable
+        }
+        if case .disabled = state {
             return .unavailable
         }
         return .healthy
@@ -481,8 +886,8 @@ final class UsageViewModel: ObservableObject {
 
     private func refreshLoop() async {
         while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(300))
             await refresh()
+            try? await Task.sleep(for: .seconds(300))
         }
     }
 
