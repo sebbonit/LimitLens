@@ -105,17 +105,13 @@ If the file becomes corrupted, it is renamed to `config.invalid.json` and defaul
 
 ### OpenCode Go setup
 
-OpenCode Go usage is scraped from the web dashboard because the CLI token does not expose usage windows. To configure it:
-
-```sh
-Scripts/configure-opencode-go.sh
-```
+OpenCode Go usage is scraped from the web dashboard because the CLI token does not expose usage windows. On first launch, ResetStat shows Settings the first time you open the popover, with an OpenCode Go dashboard form.
 
 You will need:
 - Your workspace ID from a URL like `https://opencode.ai/workspace/<workspace-id>/go`
 - The browser cookie named `auth` for `opencode.ai`
 
-The script writes a config file to `~/.config/opencode/opencode-quota/opencode-go.json`. Restart ResetStat or click refresh in the popover after configuring.
+The form writes `~/.config/opencode/opencode-quota/opencode-go.json`, enables OpenCode Go, and refreshes usage. `Scripts/configure-opencode-go.sh` remains available for terminal setup.
 
 ---
 
@@ -257,7 +253,7 @@ ResetStat/
 │   └── ResetStat.icns
 ├── Scripts/
 │   ├── build-app.sh                # Build .app bundle
-│   ├── configure-opencode-go.sh    # Write OpenCode Go config
+│   ├── configure-opencode-go.sh    # Terminal fallback for OpenCode Go config
 │   └── generate-icon.swift         # Generate .icns from source
 ├── AGENTS.md                       # Agent guidelines
 ├── RUNBOOK.md                      # Quick reference

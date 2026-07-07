@@ -30,6 +30,7 @@ struct ResetStatConfigurationTests {
         #expect(detected.providers.cursor.isEnabled == true)
         #expect(detected.providers.devin.isEnabled == false)
         #expect(detected.providers.openCodeGo.isEnabled == true)
+        #expect(detected.setup.showsFirstLaunchSetup == true)
     }
 
     @Test("Saves and reloads configuration")
@@ -47,6 +48,17 @@ struct ResetStatConfigurationTests {
         #expect(reloaded.configuration.providers.cursor.stateDatabasePath == "/tmp/cursor-state.vscdb")
         #expect(reloaded.configuration.privacy.menuBarDisplay == .hidden)
         #expect(reloaded.configuration.privacy.hidesProviderNames == true)
+    }
+
+    @Test("Legacy config defaults setup to dismissed")
+    func legacyConfigDefaultsSetupToDismissed() throws {
+        let url = temporaryConfigURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"providers":{"codex":{"isEnabled":true,"executablePath":"/x"},"cursor":{"isEnabled":true,"stateDatabasePath":"/y"},"devin":{"isEnabled":true,"stateDatabasePath":"/z"},"openCodeGo":{"isEnabled":true,"configPath":"/w"}},"privacy":{"menuBarDisplay":"logos"}}"#.utf8).write(to: url)
+
+        let store = ResetStatConfigurationStore(url: url)
+
+        #expect(store.configuration.setup.showsFirstLaunchSetup == false)
     }
 
     @Test("Legacy hidesProviderNames config migrates to menuBarDisplay")
@@ -108,6 +120,32 @@ struct ResetStatConfigurationTests {
         let config = OpenCodeGoProviderConfiguration(isEnabled: true, configPath: url.path)
 
         #expect(config.validationWarning == "Config must include workspaceId and authCookie.")
+    }
+
+    @Test("OpenCode Go credentials normalize dashboard URL and auth cookie pair")
+    func openCodeGoCredentialsNormalizeDashboardURLAndCookiePair() throws {
+        let credentials = try OpenCodeGoDashboardCredentials(
+            workspaceInput: "https://opencode.ai/workspace/team-123/go?tab=usage",
+            authCookieInput: "Cookie: theme=dark; auth=secret-token; other=value"
+        )
+
+        #expect(credentials.workspaceId == "team-123")
+        #expect(credentials.authCookie == "secret-token")
+        #expect(OpenCodeGoDashboardCredentials.normalizedWorkspaceId(from: "https://opencode.ai") == "")
+    }
+
+    @Test("OpenCode Go config writer creates private JSON file")
+    func openCodeGoConfigWriterCreatesPrivateJSONFile() throws {
+        let directory = temporaryDirectory()
+        let url = directory.appendingPathComponent("nested/opencode-go.json")
+        let credentials = OpenCodeGoDashboardCredentials(workspaceId: "team-123", authCookie: "secret-token")
+
+        try OpenCodeGoDashboardConfigFile.save(credentials, to: url)
+        let loaded = try OpenCodeGoDashboardConfigFile.load(from: url)
+        let permissions = try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int
+
+        #expect(loaded == credentials)
+        #expect(permissions == 0o600)
     }
 
     private func temporaryConfigURL() -> URL {

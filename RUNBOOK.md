@@ -27,7 +27,7 @@ You can:
 - enable or disable Codex, Cursor, Devin, and OpenCode Go
 - set the Codex executable path
 - set Cursor and Devin `state.vscdb` paths
-- set the OpenCode Go config path
+- configure OpenCode Go dashboard auth or set a custom config path
 - hide provider names
 - reset all settings to defaults
 
@@ -71,25 +71,19 @@ open .build/ResetStat.app
 
 ## OpenCode Go Setup
 
-OpenCode Go usage is scraped from the OpenCode dashboard, because the CLI token does not expose the dashboard usage windows.
-
-To configure it:
-
-```sh
-Scripts/configure-opencode-go.sh
-```
+OpenCode Go usage is scraped from the OpenCode dashboard, because the CLI token does not expose the dashboard usage windows. On first launch, ResetStat shows Settings the first time you open the popover, with an OpenCode Go dashboard form.
 
 You will need:
 
 - workspace id from a URL like `https://opencode.ai/workspace/<workspace-id>/go`
 - browser cookie value named `auth` for `opencode.ai`
 
-The script writes:
+The form writes:
 
 ```text
 ~/.config/opencode/opencode-quota/opencode-go.json
 ```
 
-Restart ResetStat or click refresh in the popover after configuring it.
+It enables OpenCode Go and refreshes usage after saving.
 
-You can also point ResetStat to a different OpenCode Go config file from the Settings tab.
+You can also point ResetStat to a different OpenCode Go config file from the Settings tab. `Scripts/configure-opencode-go.sh` remains available for terminal setup.

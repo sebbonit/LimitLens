@@ -70,6 +70,11 @@ struct ResetStatPopover: View {
     @ObservedObject var viewModel: UsageViewModel
     @State private var showsResetCreditDetails = false
     @State private var selectedTab: ProviderTab = .overview
+    @State private var didPrepareSetup = false
+    @State private var openCodeGoWorkspaceInput = ""
+    @State private var openCodeGoAuthCookieInput = ""
+    @State private var openCodeGoSetupMessage: String?
+    @State private var openCodeGoSetupMessageIsError = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -81,6 +86,7 @@ struct ResetStatPopover: View {
         }
         .padding(16)
         .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear(perform: prepareSetupView)
     }
 
     private var header: some View {
@@ -664,6 +670,10 @@ struct ResetStatPopover: View {
             VStack(alignment: .leading, spacing: 12) {
                 sectionHeader(title: "Settings", detail: "Providers", systemImage: "gearshape")
 
+                if viewModel.configuration.setup.showsFirstLaunchSetup {
+                    firstLaunchSetupView
+                }
+
                 VStack(spacing: 10) {
                     settingsProviderRow(
                         tab: .codex,
@@ -689,6 +699,7 @@ struct ResetStatPopover: View {
                         path: openCodeGoPathBinding,
                         isEnabled: providerEnabledBinding(.openCodeGo)
                     )
+                    openCodeGoDashboardConfigView
                 }
 
                 Divider()
@@ -715,6 +726,100 @@ struct ResetStatPopover: View {
                 }
             }
         }
+    }
+
+    private var firstLaunchSetupView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "checklist")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 16)
+                Text("First setup")
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Button {
+                    completeFirstLaunchSetup()
+                } label: {
+                    Label("Done", systemImage: "checkmark")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+            }
+
+            Text("Detected providers are ready. Add OpenCode Go auth below or finish with the current setup.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.accentColor.opacity(0.09))
+        )
+    }
+
+    private var openCodeGoDashboardConfigView: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                Image(systemName: providerIcon("key"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                Text(providerName("OpenCode Go dashboard", privateName: "Provider 4 dashboard"))
+                    .font(.caption.weight(.semibold))
+                Spacer()
+                Button {
+                    openOpenCodeGoDashboard()
+                } label: {
+                    Label("Open", systemImage: "globe")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+            }
+
+            TextField("Workspace ID or dashboard URL", text: $openCodeGoWorkspaceInput)
+                .textFieldStyle(.roundedBorder)
+                .font(.caption)
+
+            SecureField("auth cookie", text: $openCodeGoAuthCookieInput)
+                .textFieldStyle(.roundedBorder)
+                .font(.caption)
+
+            HStack {
+                Button {
+                    reloadOpenCodeGoDashboardConfig()
+                } label: {
+                    Label("Reload", systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+
+                Spacer()
+
+                Button {
+                    saveOpenCodeGoDashboardConfig()
+                } label: {
+                    Label("Save & refresh", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .disabled(!canSaveOpenCodeGoDashboardConfig)
+            }
+
+            if let openCodeGoSetupMessage {
+                StatusLine(
+                    icon: openCodeGoSetupMessageIsError ? "exclamationmark.triangle" : "checkmark.circle",
+                    color: openCodeGoSetupMessageIsError ? .orange : .green,
+                    text: openCodeGoSetupMessage
+                )
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.secondary.opacity(0.07))
+        )
     }
 
     private func settingsProviderRow(
@@ -938,6 +1043,95 @@ struct ResetStatPopover: View {
 
     private func openCodeGoConfigWarning(path: String) -> String? {
         OpenCodeGoProviderConfiguration(isEnabled: true, configPath: path).validationWarning
+    }
+
+    private var openCodeGoConfigURL: URL {
+        URL(fileURLWithPath: viewModel.configuration.providers.openCodeGo.configPath)
+    }
+
+    private var canSaveOpenCodeGoDashboardConfig: Bool {
+        !OpenCodeGoDashboardCredentials.normalizedWorkspaceId(from: openCodeGoWorkspaceInput).isEmpty &&
+            !OpenCodeGoDashboardCredentials.normalizedAuthCookie(from: openCodeGoAuthCookieInput).isEmpty
+    }
+
+    private func prepareSetupView() {
+        if !didPrepareSetup {
+            didPrepareSetup = true
+            loadOpenCodeGoDashboardConfig()
+        }
+
+        if viewModel.configuration.setup.showsFirstLaunchSetup {
+            selectedTab = .settings
+        }
+    }
+
+    private func completeFirstLaunchSetup() {
+        viewModel.updateConfiguration { configuration in
+            configuration.setup.showsFirstLaunchSetup = false
+        }
+    }
+
+    private func loadOpenCodeGoDashboardConfig() {
+        guard let credentials = OpenCodeGoDashboardConfigFile.loadIfPresent(from: openCodeGoConfigURL) else {
+            return
+        }
+
+        openCodeGoWorkspaceInput = credentials.workspaceId
+        openCodeGoAuthCookieInput = credentials.authCookie
+    }
+
+    private func reloadOpenCodeGoDashboardConfig() {
+        guard let credentials = OpenCodeGoDashboardConfigFile.loadIfPresent(from: openCodeGoConfigURL) else {
+            showOpenCodeGoSetupMessage("No saved OpenCode Go config found.", isError: true)
+            return
+        }
+
+        openCodeGoWorkspaceInput = credentials.workspaceId
+        openCodeGoAuthCookieInput = credentials.authCookie
+        showOpenCodeGoSetupMessage("Loaded saved OpenCode Go config.", isError: false)
+    }
+
+    private func saveOpenCodeGoDashboardConfig() {
+        do {
+            let credentials = try OpenCodeGoDashboardCredentials(
+                workspaceInput: openCodeGoWorkspaceInput,
+                authCookieInput: openCodeGoAuthCookieInput
+            )
+            try OpenCodeGoDashboardConfigFile.save(credentials, to: openCodeGoConfigURL)
+
+            openCodeGoWorkspaceInput = credentials.workspaceId
+            openCodeGoAuthCookieInput = credentials.authCookie
+            viewModel.updateConfiguration { configuration in
+                configuration.providers.openCodeGo.isEnabled = true
+                configuration.setup.showsFirstLaunchSetup = false
+            }
+            showOpenCodeGoSetupMessage("Saved OpenCode Go config.", isError: false)
+            Task { await viewModel.refresh() }
+        } catch let error as LocalizedError {
+            showOpenCodeGoSetupMessage(error.errorDescription ?? "OpenCode Go config could not be saved.", isError: true)
+        } catch {
+            showOpenCodeGoSetupMessage("OpenCode Go config could not be saved.", isError: true)
+        }
+    }
+
+    private func openOpenCodeGoDashboard() {
+        let workspaceId = OpenCodeGoDashboardCredentials.normalizedWorkspaceId(from: openCodeGoWorkspaceInput)
+        let url: URL?
+        if workspaceId.isEmpty {
+            url = URL(string: "https://opencode.ai")
+        } else {
+            let encoded = workspaceId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? workspaceId
+            url = URL(string: "https://opencode.ai/workspace/\(encoded)/go")
+        }
+
+        if let url {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func showOpenCodeGoSetupMessage(_ message: String, isError: Bool) {
+        openCodeGoSetupMessage = message
+        openCodeGoSetupMessageIsError = isError
     }
 
     private func codexHeaderDetail(_ snapshot: ResetStatSnapshot) -> String? {

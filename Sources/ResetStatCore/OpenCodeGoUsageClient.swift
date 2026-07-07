@@ -18,7 +18,7 @@ public final class OpenCodeGoUsageClient: OpenCodeGoUsageFetching, @unchecked Se
 
     public func fetchSnapshot() async throws -> OpenCodeGoUsageSnapshot {
         guard let config = try OpenCodeGoDashboardConfig.resolve(configPath: configPath) else {
-            throw CodexUsageError.unavailable("OpenCode Go needs dashboard auth. Run Scripts/configure-opencode-go.sh.")
+            throw CodexUsageError.unavailable("Configure OpenCode Go dashboard auth in Settings.")
         }
 
         async let usageTask = scrapeDashboard(config: config)
