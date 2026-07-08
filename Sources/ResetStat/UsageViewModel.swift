@@ -147,6 +147,8 @@ final class UsageViewModel: ObservableObject {
         )
     }
 
+    @Published var notificationTestStatus: String?
+
     func setNotificationsEnabled(_ enabled: Bool) {
         updateConfiguration { $0.notifications.enabled = enabled }
         if enabled {
@@ -155,10 +157,34 @@ final class UsageViewModel: ObservableObject {
     }
 
     func sendTestNotification() {
+        notificationTestStatus = nil
         Task {
-            await requestNotificationAuthorization()
-            await notificationCoordinator.sendTestNotification()
+            let status = await sendTestNotificationInternal()
+            await MainActor.run {
+                self.notificationTestStatus = status
+            }
         }
+    }
+
+    private func sendTestNotificationInternal() async -> String {
+        guard Bundle.main.bundlePath.hasSuffix(".app") else {
+            return "Notifications require running from the .app bundle, not swift run."
+        }
+
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+
+        if settings.authorizationStatus == .notDetermined {
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+            if !granted {
+                return "Notification permission was denied. Enable ResetStat in System Settings → Notifications."
+            }
+        } else if settings.authorizationStatus == .denied {
+            return "Notifications are blocked. Enable ResetStat in System Settings → Notifications."
+        }
+
+        await notificationCoordinator.sendTestNotification()
+        return "Test notification sent. Check Notification Center if no banner appears."
     }
 
     private func requestNotificationAuthorization() async {

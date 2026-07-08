@@ -374,6 +374,13 @@ struct SettingsSectionView: View {
                         .buttonStyle(.borderless)
                         .font(.caption)
 
+                        if let status = viewModel.notificationTestStatus {
+                            Text(status)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
                         Divider()
 
                         Text("Per provider")
