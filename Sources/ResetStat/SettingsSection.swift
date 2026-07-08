@@ -379,6 +379,16 @@ struct SettingsSectionView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
+
+                            if viewModel.notificationNeedsSettings {
+                                Button {
+                                    viewModel.openNotificationSettings()
+                                } label: {
+                                    Label("Open System Settings", systemImage: "gear")
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                            }
                         }
 
                         Divider()
