@@ -148,6 +148,94 @@ struct ResetStatConfigurationTests {
         #expect(permissions == 0o600)
     }
 
+    @Test("Defaults include refresh and notification configuration")
+    func defaultsIncludeRefreshAndNotificationConfiguration() {
+        let defaults = ResetStatConfiguration.defaults
+
+        #expect(defaults.refresh.intervalSeconds == 300)
+        #expect(defaults.refresh.retryEnabled == true)
+        #expect(defaults.refresh.maxRetryAttempts == 3)
+        #expect(defaults.notifications.enabled == false)
+        #expect(defaults.notifications.criticalUsage == true)
+        #expect(defaults.notifications.billingExpiring == true)
+        #expect(defaults.notifications.providerUnavailable == true)
+        #expect(defaults.notifications.quietHoursStartHour == nil)
+        #expect(defaults.notifications.quietHoursEndHour == nil)
+        #expect(defaults.notifications.perProvider == PerProviderNotificationFlags())
+    }
+
+    @Test("Refresh interval round-trips through save and reload")
+    func refreshIntervalRoundTrips() {
+        let url = temporaryConfigURL()
+        let store = ResetStatConfigurationStore(url: url)
+        store.configuration.refresh.intervalSeconds = 900
+        store.configuration.refresh.retryEnabled = false
+        store.configuration.refresh.maxRetryAttempts = 5
+        store.save()
+
+        let reloaded = ResetStatConfigurationStore(url: url)
+
+        #expect(reloaded.configuration.refresh.intervalSeconds == 900)
+        #expect(reloaded.configuration.refresh.retryEnabled == false)
+        #expect(reloaded.configuration.refresh.maxRetryAttempts == 5)
+    }
+
+    @Test("Notification configuration round-trips through save and reload")
+    func notificationConfigurationRoundTrips() {
+        let url = temporaryConfigURL()
+        let store = ResetStatConfigurationStore(url: url)
+        store.configuration.notifications.enabled = true
+        store.configuration.notifications.criticalUsage = false
+        store.configuration.notifications.quietHoursStartHour = 22
+        store.configuration.notifications.quietHoursEndHour = 7
+        store.configuration.notifications.perProvider.codex = false
+        store.save()
+
+        let reloaded = ResetStatConfigurationStore(url: url)
+
+        #expect(reloaded.configuration.notifications.enabled == true)
+        #expect(reloaded.configuration.notifications.criticalUsage == false)
+        #expect(reloaded.configuration.notifications.quietHoursStartHour == 22)
+        #expect(reloaded.configuration.notifications.quietHoursEndHour == 7)
+        #expect(reloaded.configuration.notifications.perProvider.codex == false)
+        #expect(reloaded.configuration.notifications.perProvider.cursor == true)
+    }
+
+    @Test("Legacy config without refresh or notifications keys uses defaults")
+    func legacyConfigDefaultsRefreshAndNotifications() throws {
+        let url = temporaryConfigURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"providers":{"codex":{"isEnabled":true,"executablePath":"/x"},"cursor":{"isEnabled":true,"stateDatabasePath":"/y"},"devin":{"isEnabled":true,"stateDatabasePath":"/z"},"openCodeGo":{"isEnabled":true,"configPath":"/w"}},"privacy":{"menuBarDisplay":"logos"}}"#.utf8).write(to: url)
+
+        let store = ResetStatConfigurationStore(url: url)
+
+        #expect(store.configuration.refresh == RefreshConfiguration())
+        #expect(store.configuration.notifications == NotificationConfiguration())
+    }
+
+    @Test("Refresh interval sanitizes invalid values to nearest valid interval")
+    func refreshIntervalSanitizesInvalidValues() {
+        #expect(RefreshConfiguration.sanitizedInterval(60) == 60)
+        #expect(RefreshConfiguration.sanitizedInterval(300) == 300)
+        #expect(RefreshConfiguration.sanitizedInterval(900) == 900)
+        #expect(RefreshConfiguration.sanitizedInterval(1800) == 1800)
+        #expect(RefreshConfiguration.sanitizedInterval(100) == 60)
+        #expect(RefreshConfiguration.sanitizedInterval(200) == 300)
+        #expect(RefreshConfiguration.sanitizedInterval(600) == 300)
+        #expect(RefreshConfiguration.sanitizedInterval(1200) == 900)
+        #expect(RefreshConfiguration.sanitizedInterval(9999) == 1800)
+    }
+
+    @Test("Refresh configuration clamps invalid values on decode")
+    func refreshConfigurationClampsOnDecode() throws {
+        let json = #"{"intervalSeconds":12345,"retryEnabled":false,"maxRetryAttempts":-2}"#
+        let config = try JSONDecoder().decode(RefreshConfiguration.self, from: Data(json.utf8))
+
+        #expect(config.intervalSeconds == 1800)
+        #expect(config.retryEnabled == false)
+        #expect(config.maxRetryAttempts == 0)
+    }
+
     private func temporaryConfigURL() -> URL {
         temporaryDirectory().appendingPathComponent("config.json")
     }

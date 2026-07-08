@@ -10,15 +10,21 @@ struct ResetStatConfiguration: Codable, Equatable {
     var providers: ProviderConfiguration
     var privacy: PrivacyConfiguration
     var setup: SetupConfiguration
+    var refresh: RefreshConfiguration
+    var notifications: NotificationConfiguration
 
     init(
         providers: ProviderConfiguration,
         privacy: PrivacyConfiguration,
-        setup: SetupConfiguration = SetupConfiguration()
+        setup: SetupConfiguration = SetupConfiguration(),
+        refresh: RefreshConfiguration = RefreshConfiguration(),
+        notifications: NotificationConfiguration = NotificationConfiguration()
     ) {
         self.providers = providers
         self.privacy = privacy
         self.setup = setup
+        self.refresh = refresh
+        self.notifications = notifications
     }
 
     static let defaults = ResetStatConfiguration(
@@ -47,6 +53,8 @@ struct ResetStatConfiguration: Codable, Equatable {
         case providers
         case privacy
         case setup
+        case refresh
+        case notifications
     }
 
     init(from decoder: Decoder) throws {
@@ -54,6 +62,8 @@ struct ResetStatConfiguration: Codable, Equatable {
         self.providers = try container.decode(ProviderConfiguration.self, forKey: .providers)
         self.privacy = try container.decode(PrivacyConfiguration.self, forKey: .privacy)
         self.setup = try container.decodeIfPresent(SetupConfiguration.self, forKey: .setup) ?? SetupConfiguration()
+        self.refresh = try container.decodeIfPresent(RefreshConfiguration.self, forKey: .refresh) ?? RefreshConfiguration()
+        self.notifications = try container.decodeIfPresent(NotificationConfiguration.self, forKey: .notifications) ?? NotificationConfiguration()
     }
 
     static func detected(
@@ -98,7 +108,9 @@ struct ResetStatConfiguration: Codable, Equatable {
                 openCodeGo: OpenCodeGoProviderConfiguration(isEnabled: fileExists(openCodeGoPath), configPath: openCodeGoPath)
             ),
             privacy: defaults.privacy,
-            setup: SetupConfiguration(showsFirstLaunchSetup: true)
+            setup: SetupConfiguration(showsFirstLaunchSetup: true),
+            refresh: defaults.refresh,
+            notifications: defaults.notifications
         )
     }
 
@@ -112,6 +124,103 @@ struct SetupConfiguration: Codable, Equatable {
 
     init(showsFirstLaunchSetup: Bool = false) {
         self.showsFirstLaunchSetup = showsFirstLaunchSetup
+    }
+}
+
+struct RefreshConfiguration: Codable, Equatable {
+    static let validIntervals: [Int] = [60, 300, 900, 1800]
+
+    var intervalSeconds: Int
+    var retryEnabled: Bool
+    var maxRetryAttempts: Int
+
+    init(intervalSeconds: Int = 300, retryEnabled: Bool = true, maxRetryAttempts: Int = 3) {
+        self.intervalSeconds = Self.sanitizedInterval(intervalSeconds)
+        self.retryEnabled = retryEnabled
+        self.maxRetryAttempts = max(maxRetryAttempts, 0)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case intervalSeconds
+        case retryEnabled
+        case maxRetryAttempts
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let interval = try container.decodeIfPresent(Int.self, forKey: .intervalSeconds) ?? 300
+        self.intervalSeconds = Self.sanitizedInterval(interval)
+        self.retryEnabled = try container.decodeIfPresent(Bool.self, forKey: .retryEnabled) ?? true
+        self.maxRetryAttempts = max(try container.decodeIfPresent(Int.self, forKey: .maxRetryAttempts) ?? 3, 0)
+    }
+
+    static func sanitizedInterval(_ seconds: Int) -> Int {
+        guard !validIntervals.isEmpty else { return 300 }
+        if validIntervals.contains(seconds) { return seconds }
+        return validIntervals.min(by: { abs($0 - seconds) < abs($1 - seconds) }) ?? validIntervals[1]
+    }
+}
+
+struct NotificationConfiguration: Codable, Equatable {
+    var enabled: Bool
+    var criticalUsage: Bool
+    var billingExpiring: Bool
+    var providerUnavailable: Bool
+    var quietHoursStartHour: Int?
+    var quietHoursEndHour: Int?
+    var perProvider: PerProviderNotificationFlags
+
+    init(
+        enabled: Bool = false,
+        criticalUsage: Bool = true,
+        billingExpiring: Bool = true,
+        providerUnavailable: Bool = true,
+        quietHoursStartHour: Int? = nil,
+        quietHoursEndHour: Int? = nil,
+        perProvider: PerProviderNotificationFlags = PerProviderNotificationFlags()
+    ) {
+        self.enabled = enabled
+        self.criticalUsage = criticalUsage
+        self.billingExpiring = billingExpiring
+        self.providerUnavailable = providerUnavailable
+        self.quietHoursStartHour = quietHoursStartHour
+        self.quietHoursEndHour = quietHoursEndHour
+        self.perProvider = perProvider
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case criticalUsage
+        case billingExpiring
+        case providerUnavailable
+        case quietHoursStartHour
+        case quietHoursEndHour
+        case perProvider
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        self.criticalUsage = try container.decodeIfPresent(Bool.self, forKey: .criticalUsage) ?? true
+        self.billingExpiring = try container.decodeIfPresent(Bool.self, forKey: .billingExpiring) ?? true
+        self.providerUnavailable = try container.decodeIfPresent(Bool.self, forKey: .providerUnavailable) ?? true
+        self.quietHoursStartHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursStartHour)
+        self.quietHoursEndHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursEndHour)
+        self.perProvider = try container.decodeIfPresent(PerProviderNotificationFlags.self, forKey: .perProvider) ?? PerProviderNotificationFlags()
+    }
+}
+
+struct PerProviderNotificationFlags: Codable, Equatable {
+    var codex: Bool
+    var cursor: Bool
+    var devin: Bool
+    var openCodeGo: Bool
+
+    init(codex: Bool = true, cursor: Bool = true, devin: Bool = true, openCodeGo: Bool = true) {
+        self.codex = codex
+        self.cursor = cursor
+        self.devin = devin
+        self.openCodeGo = openCodeGo
     }
 }
 
