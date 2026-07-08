@@ -152,6 +152,7 @@ final class NotificationCoordinator {
 
 final class SystemNotifier: Notifier {
     func deliver(_ request: NotificationRequest) async {
+        guard Bundle.main.bundlePath.hasSuffix(".app") else { return }
         let content = UNMutableNotificationContent()
         content.title = request.title
         content.body = request.body

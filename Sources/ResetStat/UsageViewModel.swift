@@ -155,6 +155,7 @@ final class UsageViewModel: ObservableObject {
     }
 
     private func requestNotificationAuthorization() async {
+        guard Bundle.main.bundlePath.hasSuffix(".app") else { return }
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         if settings.authorizationStatus == .notDetermined {
