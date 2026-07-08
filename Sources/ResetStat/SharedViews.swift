@@ -23,6 +23,50 @@ extension NSScroller {
     }
 }
 
+/// A scroll view that always shows its vertical scrollbar, regardless of
+/// the user's "Show scroll bars" system preference. Uses NSScrollView
+/// with autohidesScrollers=false under the hood.
+struct AlwaysVisibleScrollView<Content: View>: NSViewRepresentable {
+    @ViewBuilder let content: Content
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = false
+        scrollView.scrollerStyle = .overlay
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.automaticallyAdjustsContentInsets = false
+
+        let hostingView = NSHostingView(rootView: AnyView(content))
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.documentView = hostingView
+
+        hostingView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor).isActive = true
+        hostingView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor).isActive = true
+        hostingView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor).isActive = true
+        hostingView.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor).isActive = true
+        hostingView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor).isActive = true
+
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        if let hostingView = nsView.documentView as? NSHostingView<AnyView> {
+            hostingView.rootView = AnyView(content)
+        }
+        nsView.hasVerticalScroller = true
+        nsView.autohidesScrollers = false
+        nsView.scrollerStyle = .overlay
+        nsView.needsDisplay = true
+    }
+
+    static func dismantleNSView(_ nsView: NSScrollView, coordinator: ()) {
+        nsView.documentView = nil
+    }
+}
+
 struct DailyUsageChart: View {
     let buckets: [AccountTokenUsageDailyBucket]
 
