@@ -46,4 +46,14 @@ enum ProviderTab: String, CaseIterable, Identifiable {
         case .settings: return "gearshape"
         }
     }
+
+    var dashboardURL: URL? {
+        switch self {
+        case .codex: return URL(string: "https://chatgpt.com/#settings/AccountSettings")
+        case .cursor: return URL(string: "https://www.cursor.com/settings")
+        case .devin: return URL(string: "https://windsurf.com/settings")
+        case .openCodeGo: return nil
+        case .overview, .settings: return nil
+        }
+    }
 }

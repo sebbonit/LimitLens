@@ -231,6 +231,7 @@ struct SectionHeader: View {
     let detail: String?
     let systemImage: String
     let hidesProviderNames: Bool
+    var dashboardURL: URL? = nil
 
     var body: some View {
         HStack(spacing: 8) {
@@ -246,6 +247,16 @@ struct SectionHeader: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+            }
+            if let dashboardURL {
+                Button {
+                    NSWorkspace.shared.open(dashboardURL)
+                } label: {
+                    Label("Open", systemImage: "globe")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .help("Open dashboard")
             }
         }
     }

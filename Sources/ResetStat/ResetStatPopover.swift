@@ -81,7 +81,8 @@ struct ResetStatPopover: View {
                 snapshot: viewModel.openCodeGoSnapshot,
                 state: viewModel.openCodeGoState,
                 now: viewModel.now,
-                hidesProviderNames: viewModel.hidesProviderNames
+                hidesProviderNames: viewModel.hidesProviderNames,
+                dashboardURL: viewModel.openCodeGoDashboardURL
             )
         case .settings:
             SettingsSectionView(viewModel: viewModel, selectedTab: $selectedTab)
@@ -169,7 +170,8 @@ struct ResetStatPopover: View {
                     snapshot: viewModel.openCodeGoSnapshot,
                     state: viewModel.openCodeGoState,
                     now: viewModel.now,
-                    hidesProviderNames: viewModel.hidesProviderNames
+                    hidesProviderNames: viewModel.hidesProviderNames,
+                    dashboardURL: viewModel.openCodeGoDashboardURL
                 )
             case .settings:
                 SettingsSectionView(viewModel: viewModel, selectedTab: $selectedTab)

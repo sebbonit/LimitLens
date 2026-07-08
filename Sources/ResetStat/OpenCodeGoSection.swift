@@ -7,6 +7,7 @@ struct OpenCodeGoSectionView: View {
     let state: UsageViewModel.LoadState
     let now: Date
     let hidesProviderNames: Bool
+    var dashboardURL: URL? = nil
 
     var body: some View {
         SectionBlock {
@@ -15,7 +16,8 @@ struct OpenCodeGoSectionView: View {
                     title: providerName("OpenCode Go", privateName: "Provider 4", hidesProviderNames: hidesProviderNames),
                     detail: headerDetail,
                     systemImage: "chevron.left.forwardslash.chevron.right",
-                    hidesProviderNames: hidesProviderNames
+                    hidesProviderNames: hidesProviderNames,
+                    dashboardURL: dashboardURL
                 )
 
                 if let snapshot = snapshot, snapshot.hasUsage {

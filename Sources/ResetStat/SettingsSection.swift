@@ -436,18 +436,7 @@ struct SettingsSectionView: View {
     }
 
     private func openOpenCodeGoDashboard() {
-        let workspaceId = OpenCodeGoDashboardCredentials.normalizedWorkspaceId(from: openCodeGoWorkspaceInput)
-        let url: URL?
-        if workspaceId.isEmpty {
-            url = URL(string: "https://opencode.ai")
-        } else {
-            let encoded = workspaceId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? workspaceId
-            url = URL(string: "https://opencode.ai/workspace/\(encoded)/go")
-        }
-
-        if let url {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(OpenCodeGoDashboardCredentials.dashboardURL(workspaceId: openCodeGoWorkspaceInput))
     }
 
     private func showOpenCodeGoSetupMessage(_ message: String, isError: Bool) {

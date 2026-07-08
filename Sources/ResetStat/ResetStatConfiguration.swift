@@ -347,6 +347,15 @@ struct OpenCodeGoDashboardCredentials: Codable, Equatable {
         (value.removingPercentEncoding ?? value)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    static func dashboardURL(workspaceId: String) -> URL {
+        let normalized = normalizedWorkspaceId(from: workspaceId)
+        guard !normalized.isEmpty else {
+            return URL(string: "https://opencode.ai")!
+        }
+        let encoded = normalized.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? normalized
+        return URL(string: "https://opencode.ai/workspace/\(encoded)/go")!
+    }
 }
 
 enum OpenCodeGoDashboardConfigFile {

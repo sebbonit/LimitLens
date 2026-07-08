@@ -30,6 +30,15 @@ extension UsageViewModel {
         configuration.privacy.menuBarDisplay
     }
 
+    var openCodeGoDashboardURL: URL? {
+        guard configuration.providers.openCodeGo.isEnabled else { return nil }
+        let configPath = configuration.providers.openCodeGo.configPath
+        guard let credentials = OpenCodeGoDashboardConfigFile.loadIfPresent(from: URL(fileURLWithPath: configPath)) else {
+            return nil
+        }
+        return OpenCodeGoDashboardCredentials.dashboardURL(workspaceId: credentials.workspaceId)
+    }
+
     var prioritySummary: ProviderUsageSummary? {
         providerSummaries
             .sorted {

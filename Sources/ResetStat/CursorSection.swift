@@ -15,7 +15,8 @@ struct CursorSectionView: View {
                     title: providerName("Cursor", privateName: "Provider 2", hidesProviderNames: hidesProviderNames),
                     detail: headerDetail,
                     systemImage: "cursorarrow",
-                    hidesProviderNames: hidesProviderNames
+                    hidesProviderNames: hidesProviderNames,
+                    dashboardURL: ProviderTab.cursor.dashboardURL
                 )
 
                 if let cursor = snapshot {

@@ -15,7 +15,8 @@ struct DevinSectionView: View {
                     title: providerName("Devin", privateName: "Provider 3", hidesProviderNames: hidesProviderNames),
                     detail: headerDetail,
                     systemImage: "sparkles",
-                    hidesProviderNames: hidesProviderNames
+                    hidesProviderNames: hidesProviderNames,
+                    dashboardURL: ProviderTab.devin.dashboardURL
                 )
 
                 if !snapshots.isEmpty {

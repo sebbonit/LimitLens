@@ -15,7 +15,8 @@ struct CodexSectionView: View {
                     title: providerName("Codex", privateName: "Provider 1", hidesProviderNames: hidesProviderNames),
                     detail: codexHeaderDetail,
                     systemImage: "terminal",
-                    hidesProviderNames: hidesProviderNames
+                    hidesProviderNames: hidesProviderNames,
+                    dashboardURL: ProviderTab.codex.dashboardURL
                 )
 
                 VStack(spacing: 10) {
