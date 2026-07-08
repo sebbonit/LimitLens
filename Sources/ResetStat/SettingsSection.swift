@@ -27,6 +27,7 @@ struct SettingsSectionView: View {
                 resetSection
             }
         }
+        .scrollIndicators(.visible, axes: .vertical)
         .onAppear {
             if !didLoadConfig {
                 didLoadConfig = true
