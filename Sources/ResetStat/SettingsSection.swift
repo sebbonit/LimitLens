@@ -22,6 +22,7 @@ struct SettingsSectionView: View {
                 providersSection
                 openCodeGoAuthSection
                 menuBarSection
+                refreshSection
                 resetSection
             }
         }
@@ -247,6 +248,45 @@ struct SettingsSectionView: View {
         }
     }
 
+    // MARK: - Refresh
+
+    private var refreshSection: some View {
+        SectionBlock {
+            VStack(alignment: .leading, spacing: 10) {
+                settingsSectionHeader(
+                    title: "Refresh",
+                    systemImage: "arrow.clockwise",
+                    detail: nil
+                )
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Interval")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Picker("Interval", selection: refreshIntervalBinding) {
+                        Text("1m").tag(60)
+                        Text("5m").tag(300)
+                        Text("15m").tag(900)
+                        Text("30m").tag(1800)
+                    }
+                    .pickerStyle(.segmented)
+                    .font(.caption.weight(.semibold))
+                }
+
+                Toggle("Retry on failure", isOn: retryEnabledBinding)
+                    .font(.caption)
+
+                if viewModel.configuration.refresh.retryEnabled {
+                    Stepper("Attempts: \(viewModel.configuration.refresh.maxRetryAttempts)",
+                            value: retryAttemptsBinding,
+                            in: 1...10)
+                        .font(.caption)
+                }
+            }
+        }
+    }
+
     // MARK: - Reset
 
     private var resetSection: some View {
@@ -386,6 +426,33 @@ struct SettingsSectionView: View {
             get: { viewModel.configuration.privacy.menuBarDisplay },
             set: { value in
                 viewModel.updateConfiguration { $0.privacy.menuBarDisplay = value }
+            }
+        )
+    }
+
+    private var refreshIntervalBinding: Binding<Int> {
+        Binding(
+            get: { viewModel.configuration.refresh.intervalSeconds },
+            set: { value in
+                viewModel.updateConfiguration { $0.refresh.intervalSeconds = value }
+            }
+        )
+    }
+
+    private var retryEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.configuration.refresh.retryEnabled },
+            set: { value in
+                viewModel.updateConfiguration { $0.refresh.retryEnabled = value }
+            }
+        )
+    }
+
+    private var retryAttemptsBinding: Binding<Int> {
+        Binding(
+            get: { viewModel.configuration.refresh.maxRetryAttempts },
+            set: { value in
+                viewModel.updateConfiguration { $0.refresh.maxRetryAttempts = value }
             }
         )
     }

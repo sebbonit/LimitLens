@@ -23,6 +23,11 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var configuration: ResetStatConfiguration
     @Published var now = Date()
+    @Published private(set) var lastFetchAt: [ProviderTab: Date] = [:]
+
+    var isProviderRefreshing: (ProviderTab) -> Bool {
+        { self.refreshingProviders.contains($0) }
+    }
 
     private let configurationStore: ResetStatConfigurationStore?
     private let service: CodexUsageFetching?
@@ -30,6 +35,7 @@ final class UsageViewModel: ObservableObject {
     private let desktopQuotaService: DesktopQuotaFetching?
     private let openCodeGoService: OpenCodeGoUsageFetching?
     private var didStartLoops = false
+    private var refreshingProviders: Set<ProviderTab> = []
 
     convenience init(configurationStore: ResetStatConfigurationStore = ResetStatConfigurationStore()) {
         self.init(
@@ -84,8 +90,7 @@ final class UsageViewModel: ObservableObject {
     func refresh() async {
         guard !isRefreshing else { return }
         isRefreshing = true
-        defer { isRefreshing = false }
-
+        defer { updateIsRefreshing() }
         await withTaskGroup(of: Void.self) { group in
             if self.configuration.providers.codex.isEnabled {
                 group.addTask { await self.refreshCodex() }
@@ -117,6 +122,29 @@ final class UsageViewModel: ObservableObject {
         }
     }
 
+    func refreshProvider(_ tab: ProviderTab) async {
+        guard isProviderEnabled(tab) else { return }
+        guard !refreshingProviders.contains(tab) else { return }
+        isRefreshing = true
+        defer { updateIsRefreshing() }
+        switch tab {
+        case .codex:
+            await refreshCodex()
+        case .cursor:
+            await refreshCursor()
+        case .devin:
+            await refreshDesktopQuotas()
+        case .openCodeGo:
+            await refreshOpenCodeGo()
+        case .overview, .settings:
+            return
+        }
+    }
+
+    private func updateIsRefreshing() {
+        isRefreshing = !refreshingProviders.isEmpty
+    }
+
     func updateConfiguration(_ update: (inout ResetStatConfiguration) -> Void) {
         update(&configuration)
         configurationStore?.configuration = configuration
@@ -132,10 +160,17 @@ final class UsageViewModel: ObservableObject {
     }
 
     private func refreshCodex() async {
+        refreshingProviders.insert(.codex)
+        updateIsRefreshing()
+        defer {
+            refreshingProviders.remove(.codex)
+            updateIsRefreshing()
+        }
         state = snapshot == nil ? .loading : .loaded
         do {
-            snapshot = try await codexService().fetchSnapshot()
+            snapshot = try await withRetry { try await codexService().fetchSnapshot() }
             state = .loaded
+            lastFetchAt[.codex] = Date()
         } catch let error as CodexUsageError {
             state = .failed(error.localizedDescription)
         } catch {
@@ -144,10 +179,17 @@ final class UsageViewModel: ObservableObject {
     }
 
     private func refreshCursor() async {
+        refreshingProviders.insert(.cursor)
+        updateIsRefreshing()
+        defer {
+            refreshingProviders.remove(.cursor)
+            updateIsRefreshing()
+        }
         cursorState = cursorSnapshot == nil ? .loading : .loaded
         do {
-            cursorSnapshot = try await cursorUsageService().fetchSnapshot()
+            cursorSnapshot = try await withRetry { try await cursorUsageService().fetchSnapshot() }
             cursorState = .loaded
+            lastFetchAt[.cursor] = Date()
         } catch let error as CursorUsageError {
             cursorState = .failed(error.localizedDescription)
         } catch {
@@ -156,26 +198,62 @@ final class UsageViewModel: ObservableObject {
     }
 
     private func refreshDesktopQuotas() async {
+        refreshingProviders.insert(.devin)
+        updateIsRefreshing()
+        defer {
+            refreshingProviders.remove(.devin)
+            updateIsRefreshing()
+        }
         desktopQuotaState = desktopQuotaSnapshots.isEmpty ? .loading : .loaded
         do {
-            let snapshots = try await desktopQuotaUsageService().fetchSnapshots()
+            let snapshots = try await withRetry { try await desktopQuotaUsageService().fetchSnapshots() }
             desktopQuotaSnapshots = snapshots
             desktopQuotaState = snapshots.isEmpty ? .failed("Devin quota cache unavailable.") : .loaded
+            lastFetchAt[.devin] = Date()
         } catch {
             desktopQuotaState = .failed("Devin quotas are temporarily unavailable.")
         }
     }
 
     private func refreshOpenCodeGo() async {
+        refreshingProviders.insert(.openCodeGo)
+        updateIsRefreshing()
+        defer {
+            refreshingProviders.remove(.openCodeGo)
+            updateIsRefreshing()
+        }
         openCodeGoState = openCodeGoSnapshot == nil ? .loading : .loaded
         do {
-            openCodeGoSnapshot = try await openCodeGoUsageService().fetchSnapshot()
+            openCodeGoSnapshot = try await withRetry { try await openCodeGoUsageService().fetchSnapshot() }
             openCodeGoState = .loaded
+            lastFetchAt[.openCodeGo] = Date()
         } catch let error as CodexUsageError {
             openCodeGoState = .failed(error.localizedDescription)
         } catch {
             openCodeGoState = .failed("OpenCode Go usage is temporarily unavailable.")
         }
+    }
+
+    private func withRetry<T>(_ operation: () async throws -> T) async throws -> T {
+        guard configuration.refresh.retryEnabled else { return try await operation() }
+        let maxAttempts = configuration.refresh.maxRetryAttempts
+        var attempt = 0
+        while true {
+            do {
+                return try await operation()
+            } catch {
+                attempt += 1
+                if attempt >= maxAttempts { throw error }
+                let delaySeconds = retryDelayProvider(attempt)
+                if delaySeconds > 0 {
+                    try? await Task.sleep(for: .seconds(delaySeconds))
+                }
+            }
+        }
+    }
+
+    var retryDelayProvider: (Int) -> TimeInterval = { attempt in
+        pow(2.0, Double(attempt)) * 2
     }
 
     private func codexService() -> CodexUsageFetching {
@@ -243,7 +321,8 @@ final class UsageViewModel: ObservableObject {
     private func refreshLoop() async {
         while !Task.isCancelled {
             await refresh()
-            try? await Task.sleep(for: .seconds(300))
+            let interval = configuration.refresh.intervalSeconds
+            try? await Task.sleep(for: .seconds(interval))
         }
     }
 

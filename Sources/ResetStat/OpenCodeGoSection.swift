@@ -8,6 +8,9 @@ struct OpenCodeGoSectionView: View {
     let now: Date
     let hidesProviderNames: Bool
     var dashboardURL: URL? = nil
+    var isRefreshing: Bool = false
+    var lastUpdated: Date? = nil
+    var onRefresh: (() -> Void)? = nil
 
     var body: some View {
         SectionBlock {
@@ -17,7 +20,10 @@ struct OpenCodeGoSectionView: View {
                     detail: headerDetail,
                     systemImage: "chevron.left.forwardslash.chevron.right",
                     hidesProviderNames: hidesProviderNames,
-                    dashboardURL: dashboardURL
+                    dashboardURL: dashboardURL,
+                    isRefreshing: isRefreshing,
+                    lastUpdated: lastUpdated,
+                    onRefresh: onRefresh
                 )
 
                 if let snapshot = snapshot, snapshot.hasUsage {

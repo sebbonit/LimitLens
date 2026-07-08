@@ -7,6 +7,9 @@ struct DevinSectionView: View {
     let state: UsageViewModel.LoadState
     let now: Date
     let hidesProviderNames: Bool
+    var isRefreshing: Bool = false
+    var lastUpdated: Date? = nil
+    var onRefresh: (() -> Void)? = nil
 
     var body: some View {
         SectionBlock {
@@ -16,7 +19,10 @@ struct DevinSectionView: View {
                     detail: headerDetail,
                     systemImage: "sparkles",
                     hidesProviderNames: hidesProviderNames,
-                    dashboardURL: ProviderTab.devin.dashboardURL
+                    dashboardURL: ProviderTab.devin.dashboardURL,
+                    isRefreshing: isRefreshing,
+                    lastUpdated: lastUpdated,
+                    onRefresh: onRefresh
                 )
 
                 if !snapshots.isEmpty {

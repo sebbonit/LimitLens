@@ -7,6 +7,9 @@ struct CursorSectionView: View {
     let state: UsageViewModel.LoadState
     let now: Date
     let hidesProviderNames: Bool
+    var isRefreshing: Bool = false
+    var lastUpdated: Date? = nil
+    var onRefresh: (() -> Void)? = nil
 
     var body: some View {
         SectionBlock {
@@ -16,7 +19,10 @@ struct CursorSectionView: View {
                     detail: headerDetail,
                     systemImage: "cursorarrow",
                     hidesProviderNames: hidesProviderNames,
-                    dashboardURL: ProviderTab.cursor.dashboardURL
+                    dashboardURL: ProviderTab.cursor.dashboardURL,
+                    isRefreshing: isRefreshing,
+                    lastUpdated: lastUpdated,
+                    onRefresh: onRefresh
                 )
 
                 if let cursor = snapshot {

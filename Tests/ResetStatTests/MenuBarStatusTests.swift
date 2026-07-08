@@ -227,7 +227,11 @@ struct MenuBarStatusTests {
     }
 
     private func makeViewModel(
-        configuration: ResetStatConfiguration = .defaults,
+        configuration: ResetStatConfiguration = {
+            var config = ResetStatConfiguration.defaults
+            config.refresh.retryEnabled = false
+            return config
+        }(),
         codex: MockCodexUsageClient = MockCodexUsageClient(result: .failure(TestError.unavailable)),
         cursor: MockCursorUsageClient = MockCursorUsageClient(result: .failure(TestError.unavailable)),
         desktopQuota: MockDesktopQuotaClient = MockDesktopQuotaClient(result: .failure(TestError.unavailable)),

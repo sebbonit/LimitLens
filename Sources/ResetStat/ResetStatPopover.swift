@@ -57,7 +57,10 @@ struct ResetStatPopover: View {
                 CodexSectionView(
                     snapshot: snapshot,
                     now: viewModel.now,
-                    hidesProviderNames: viewModel.hidesProviderNames
+                    hidesProviderNames: viewModel.hidesProviderNames,
+                    isRefreshing: viewModel.isProviderRefreshing(.codex),
+                    lastUpdated: viewModel.lastFetchAt[.codex],
+                    onRefresh: { Task { await viewModel.refreshProvider(.codex) } }
                 )
             } else {
                 unavailableView
@@ -67,14 +70,20 @@ struct ResetStatPopover: View {
                 snapshot: viewModel.cursorSnapshot,
                 state: viewModel.cursorState,
                 now: viewModel.now,
-                hidesProviderNames: viewModel.hidesProviderNames
+                hidesProviderNames: viewModel.hidesProviderNames,
+                isRefreshing: viewModel.isProviderRefreshing(.cursor),
+                lastUpdated: viewModel.lastFetchAt[.cursor],
+                onRefresh: { Task { await viewModel.refreshProvider(.cursor) } }
             )
         case .devin:
             DevinSectionView(
                 snapshots: viewModel.desktopQuotaSnapshots,
                 state: viewModel.desktopQuotaState,
                 now: viewModel.now,
-                hidesProviderNames: viewModel.hidesProviderNames
+                hidesProviderNames: viewModel.hidesProviderNames,
+                isRefreshing: viewModel.isProviderRefreshing(.devin),
+                lastUpdated: viewModel.lastFetchAt[.devin],
+                onRefresh: { Task { await viewModel.refreshProvider(.devin) } }
             )
         case .openCodeGo:
             OpenCodeGoSectionView(
@@ -82,7 +91,10 @@ struct ResetStatPopover: View {
                 state: viewModel.openCodeGoState,
                 now: viewModel.now,
                 hidesProviderNames: viewModel.hidesProviderNames,
-                dashboardURL: viewModel.openCodeGoDashboardURL
+                dashboardURL: viewModel.openCodeGoDashboardURL,
+                isRefreshing: viewModel.isProviderRefreshing(.openCodeGo),
+                lastUpdated: viewModel.lastFetchAt[.openCodeGo],
+                onRefresh: { Task { await viewModel.refreshProvider(.openCodeGo) } }
             )
         case .settings:
             SettingsSectionView(viewModel: viewModel, selectedTab: $selectedTab)
@@ -145,7 +157,10 @@ struct ResetStatPopover: View {
                     CodexSectionView(
                         snapshot: snapshot,
                         now: viewModel.now,
-                        hidesProviderNames: viewModel.hidesProviderNames
+                        hidesProviderNames: viewModel.hidesProviderNames,
+                        isRefreshing: viewModel.isProviderRefreshing(.codex),
+                        lastUpdated: viewModel.lastFetchAt[.codex],
+                        onRefresh: { Task { await viewModel.refreshProvider(.codex) } }
                     )
                 }
                 SectionBlock {
@@ -156,14 +171,20 @@ struct ResetStatPopover: View {
                     snapshot: viewModel.cursorSnapshot,
                     state: viewModel.cursorState,
                     now: viewModel.now,
-                    hidesProviderNames: viewModel.hidesProviderNames
+                    hidesProviderNames: viewModel.hidesProviderNames,
+                    isRefreshing: viewModel.isProviderRefreshing(.cursor),
+                    lastUpdated: viewModel.lastFetchAt[.cursor],
+                    onRefresh: { Task { await viewModel.refreshProvider(.cursor) } }
                 )
             case .devin:
                 DevinSectionView(
                     snapshots: viewModel.desktopQuotaSnapshots,
                     state: viewModel.desktopQuotaState,
                     now: viewModel.now,
-                    hidesProviderNames: viewModel.hidesProviderNames
+                    hidesProviderNames: viewModel.hidesProviderNames,
+                    isRefreshing: viewModel.isProviderRefreshing(.devin),
+                    lastUpdated: viewModel.lastFetchAt[.devin],
+                    onRefresh: { Task { await viewModel.refreshProvider(.devin) } }
                 )
             case .openCodeGo:
                 OpenCodeGoSectionView(
@@ -171,7 +192,10 @@ struct ResetStatPopover: View {
                     state: viewModel.openCodeGoState,
                     now: viewModel.now,
                     hidesProviderNames: viewModel.hidesProviderNames,
-                    dashboardURL: viewModel.openCodeGoDashboardURL
+                    dashboardURL: viewModel.openCodeGoDashboardURL,
+                    isRefreshing: viewModel.isProviderRefreshing(.openCodeGo),
+                    lastUpdated: viewModel.lastFetchAt[.openCodeGo],
+                    onRefresh: { Task { await viewModel.refreshProvider(.openCodeGo) } }
                 )
             case .settings:
                 SettingsSectionView(viewModel: viewModel, selectedTab: $selectedTab)

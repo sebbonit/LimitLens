@@ -6,6 +6,9 @@ struct CodexSectionView: View {
     let snapshot: ResetStatSnapshot
     let now: Date
     let hidesProviderNames: Bool
+    var isRefreshing: Bool = false
+    var lastUpdated: Date? = nil
+    var onRefresh: (() -> Void)? = nil
     @State private var showsResetCreditDetails = false
 
     var body: some View {
@@ -16,7 +19,10 @@ struct CodexSectionView: View {
                     detail: codexHeaderDetail,
                     systemImage: "terminal",
                     hidesProviderNames: hidesProviderNames,
-                    dashboardURL: ProviderTab.codex.dashboardURL
+                    dashboardURL: ProviderTab.codex.dashboardURL,
+                    isRefreshing: isRefreshing,
+                    lastUpdated: lastUpdated,
+                    onRefresh: onRefresh
                 )
 
                 VStack(spacing: 10) {

@@ -232,21 +232,42 @@ struct SectionHeader: View {
     let systemImage: String
     let hidesProviderNames: Bool
     var dashboardURL: URL? = nil
+    var isRefreshing: Bool = false
+    var lastUpdated: Date? = nil
+    var onRefresh: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 18)
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-            Spacer()
-            if let detail, !detail.isEmpty {
-                Text(detail)
-                    .font(.caption.weight(.medium))
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .frame(width: 18)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if let onRefresh {
+                    Button(action: onRefresh) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11, weight: .semibold))
+                            .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                            .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(isRefreshing)
+                    .help("Refresh")
+                }
+            }
+            if let lastUpdated {
+                Text("Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
             if let dashboardURL {
                 Button {
