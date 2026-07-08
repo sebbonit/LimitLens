@@ -366,6 +366,16 @@ struct SettingsSectionView: View {
 
                         Divider()
 
+                        Button {
+                            viewModel.sendTestNotification()
+                        } label: {
+                            Label("Send test notification", systemImage: "bell.badge")
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+
+                        Divider()
+
                         Text("Per provider")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)

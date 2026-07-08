@@ -23,6 +23,14 @@ final class NotificationCoordinator {
         self.notifier = notifier
     }
 
+    func sendTestNotification() async {
+        await notifier.deliver(NotificationRequest(
+            identifier: "test-\(UUID().uuidString)",
+            title: "ResetStat test notification",
+            body: "If you can see this, notifications are working correctly."
+        ))
+    }
+
     func evaluate(
         summaries: [ProviderUsageSummary],
         billingExpiries: [BillingExpiry],

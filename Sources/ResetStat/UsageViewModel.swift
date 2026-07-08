@@ -154,6 +154,13 @@ final class UsageViewModel: ObservableObject {
         }
     }
 
+    func sendTestNotification() {
+        Task {
+            await requestNotificationAuthorization()
+            await notificationCoordinator.sendTestNotification()
+        }
+    }
+
     private func requestNotificationAuthorization() async {
         guard Bundle.main.bundlePath.hasSuffix(".app") else { return }
         let center = UNUserNotificationCenter.current()
