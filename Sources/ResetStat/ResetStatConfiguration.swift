@@ -170,6 +170,8 @@ struct NotificationConfiguration: Codable, Equatable {
     var criticalUsage: Bool
     var billingExpiring: Bool
     var providerUnavailable: Bool
+    var dailyDigest: Bool
+    var dailyDigestHour: Int
     var quietHoursStartHour: Int?
     var quietHoursEndHour: Int?
     var perProvider: PerProviderNotificationFlags
@@ -180,6 +182,8 @@ struct NotificationConfiguration: Codable, Equatable {
         criticalUsage: Bool = true,
         billingExpiring: Bool = true,
         providerUnavailable: Bool = true,
+        dailyDigest: Bool = false,
+        dailyDigestHour: Int = 9,
         quietHoursStartHour: Int? = nil,
         quietHoursEndHour: Int? = nil,
         perProvider: PerProviderNotificationFlags = PerProviderNotificationFlags(),
@@ -189,6 +193,8 @@ struct NotificationConfiguration: Codable, Equatable {
         self.criticalUsage = criticalUsage
         self.billingExpiring = billingExpiring
         self.providerUnavailable = providerUnavailable
+        self.dailyDigest = dailyDigest
+        self.dailyDigestHour = max(0, min(23, dailyDigestHour))
         self.quietHoursStartHour = quietHoursStartHour
         self.quietHoursEndHour = quietHoursEndHour
         self.perProvider = perProvider
@@ -200,6 +206,8 @@ struct NotificationConfiguration: Codable, Equatable {
         case criticalUsage
         case billingExpiring
         case providerUnavailable
+        case dailyDigest
+        case dailyDigestHour
         case quietHoursStartHour
         case quietHoursEndHour
         case perProvider
@@ -212,6 +220,9 @@ struct NotificationConfiguration: Codable, Equatable {
         self.criticalUsage = try container.decodeIfPresent(Bool.self, forKey: .criticalUsage) ?? true
         self.billingExpiring = try container.decodeIfPresent(Bool.self, forKey: .billingExpiring) ?? true
         self.providerUnavailable = try container.decodeIfPresent(Bool.self, forKey: .providerUnavailable) ?? true
+        self.dailyDigest = try container.decodeIfPresent(Bool.self, forKey: .dailyDigest) ?? false
+        let digestHour = try container.decodeIfPresent(Int.self, forKey: .dailyDigestHour) ?? 9
+        self.dailyDigestHour = max(0, min(23, digestHour))
         self.quietHoursStartHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursStartHour)
         self.quietHoursEndHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursEndHour)
         self.perProvider = try container.decodeIfPresent(PerProviderNotificationFlags.self, forKey: .perProvider) ?? PerProviderNotificationFlags()

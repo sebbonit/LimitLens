@@ -296,6 +296,135 @@ struct UsageNotificationTests {
 
         #expect(notifier.requests.isEmpty)
     }
+
+    // MARK: - Daily digest
+
+    @Test("Daily digest fires once per day when enabled")
+    func dailyDigestFiresOncePerDay() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.dailyDigest = true
+        config.dailyDigestHour = 9
+
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 7, day: 9, hour: 10))!
+        let summary = makeSummary(tab: .codex, severity: .healthy, percentUsed: 40)
+
+        await coordinator.evaluate(summaries: [summary], billingExpiries: [], loadStates: [.codex: .loaded], configuration: config, hidesProviderNames: false, now: now)
+        #expect(notifier.requests.count == 1)
+        #expect(notifier.requests[0].identifier == "digest-2026-07-09")
+        #expect(notifier.requests[0].title.contains("Daily"))
+
+        // Second eval same day should not fire again
+        await coordinator.evaluate(summaries: [summary], billingExpiries: [], loadStates: [.codex: .loaded], configuration: config, hidesProviderNames: false, now: now)
+        #expect(notifier.requests.count == 1)
+    }
+
+    @Test("Daily digest does not fire before configured hour")
+    func dailyDigestDoesNotFireBeforeHour() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.dailyDigest = true
+        config.dailyDigestHour = 9
+
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 7, day: 9, hour: 8))!
+        let summary = makeSummary(tab: .codex, severity: .healthy, percentUsed: 40)
+
+        await coordinator.evaluate(summaries: [summary], billingExpiries: [], loadStates: [.codex: .loaded], configuration: config, hidesProviderNames: false, now: now)
+        #expect(notifier.requests.isEmpty)
+    }
+
+    @Test("Daily digest disabled does not fire")
+    func dailyDigestDisabledDoesNotFire() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.dailyDigest = false
+
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 7, day: 9, hour: 10))!
+        let summary = makeSummary(tab: .codex, severity: .healthy, percentUsed: 40)
+
+        await coordinator.evaluate(summaries: [summary], billingExpiries: [], loadStates: [.codex: .loaded], configuration: config, hidesProviderNames: false, now: now)
+        #expect(notifier.requests.isEmpty)
+    }
+
+    @Test("Daily digest summarizes critical and billing")
+    func dailyDigestSummarizesCriticalAndBilling() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.dailyDigest = true
+        config.dailyDigestHour = 9
+
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 7, day: 9, hour: 10))!
+        let summaries = [
+            makeSummary(tab: .codex, severity: .critical, percentUsed: 92),
+            makeSummary(tab: .cursor, severity: .warning, percentUsed: 75),
+            makeSummary(tab: .devin, severity: .healthy, percentUsed: 30)
+        ]
+        let billing = [
+            makeBillingExpiry(tab: .codex, urgency: .soon, date: now.addingTimeInterval(3 * 86_400))
+        ]
+
+        await coordinator.evaluate(summaries: summaries, billingExpiries: billing, loadStates: [.codex: .loaded, .cursor: .loaded, .devin: .loaded], configuration: config, hidesProviderNames: false, now: now)
+
+        let digest = notifier.requests.first { $0.identifier.hasPrefix("digest-") }
+        #expect(digest != nil)
+        #expect(digest!.body.contains("critical"))
+        #expect(digest!.body.contains("warning"))
+        #expect(digest!.body.contains("renewing soon"))
+    }
+
+    @Test("Daily digest fires on a new day after previous day sent")
+    func dailyDigestFiresOnNewDay() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.dailyDigest = true
+        config.dailyDigestHour = 9
+
+        let day1 = Calendar.current.date(from: DateComponents(year: 2026, month: 7, day: 9, hour: 10))!
+        let day2 = Calendar.current.date(from: DateComponents(year: 2026, month: 7, day: 10, hour: 10))!
+        let summary = makeSummary(tab: .codex, severity: .healthy, percentUsed: 40)
+
+        await coordinator.evaluate(summaries: [summary], billingExpiries: [], loadStates: [.codex: .loaded], configuration: config, hidesProviderNames: false, now: day1)
+        await coordinator.evaluate(summaries: [summary], billingExpiries: [], loadStates: [.codex: .loaded], configuration: config, hidesProviderNames: false, now: day2)
+
+        let digests = notifier.requests.filter { $0.identifier.hasPrefix("digest-") }
+        #expect(digests.count == 2)
+        #expect(digests[0].identifier == "digest-2026-07-09")
+        #expect(digests[1].identifier == "digest-2026-07-10")
+    }
+
+    @Test("Daily digest respects quiet hours")
+    func dailyDigestRespectsQuietHours() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.dailyDigest = true
+        config.dailyDigestHour = 22
+        config.quietHoursStartHour = 22
+        config.quietHoursEndHour = 7
+
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 7, day: 9, hour: 23))!
+        let summary = makeSummary(tab: .codex, severity: .healthy, percentUsed: 40)
+
+        await coordinator.evaluate(summaries: [summary], billingExpiries: [], loadStates: [.codex: .loaded], configuration: config, hidesProviderNames: false, now: now)
+        #expect(notifier.requests.isEmpty)
+    }
 }
 
 private final class RecordingNotifier: Notifier, @unchecked Sendable {

@@ -18,6 +18,13 @@ final class NotificationCoordinator {
     private var previousOverCritical: Set<ProviderTab> = []
     private var previousUrgency: [ProviderTab: UsageFormatting.ExpiryUrgency] = [:]
     private var wasUnavailable: Set<ProviderTab> = []
+    private var lastDigestDay: String?
+
+    private static let digestDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     init(notifier: Notifier = SystemNotifier()) {
         self.notifier = notifier
@@ -62,6 +69,16 @@ final class NotificationCoordinator {
                 guard isProviderEnabled else { continue }
                 await checkBillingExpiry(entry: entry, hidesProviderNames: hidesProviderNames, configuration: configuration)
             }
+        }
+
+        if configuration.dailyDigest {
+            await checkDailyDigest(
+                summaries: summaries,
+                billingExpiries: billingExpiries,
+                hidesProviderNames: hidesProviderNames,
+                configuration: configuration,
+                now: now
+            )
         }
     }
 
@@ -136,6 +153,67 @@ final class NotificationCoordinator {
         } else if !isUnavailable && wasPreviouslyUnavailable {
             wasUnavailable.remove(tab)
         }
+    }
+
+    private func checkDailyDigest(
+        summaries: [ProviderUsageSummary],
+        billingExpiries: [BillingExpiry],
+        hidesProviderNames: Bool,
+        configuration: NotificationConfiguration,
+        now: Date
+    ) async {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        guard hour >= configuration.dailyDigestHour else { return }
+
+        let today = Self.digestDayFormatter.string(from: now)
+        if lastDigestDay == today { return }
+        lastDigestDay = today
+
+        let body = digestBody(
+            summaries: summaries,
+            billingExpiries: billingExpiries,
+            hidesProviderNames: hidesProviderNames,
+            now: now
+        )
+
+        await notifier.deliver(NotificationRequest(
+            identifier: "digest-\(today)",
+            title: "Daily usage summary",
+            body: body
+        ))
+    }
+
+    private func digestBody(
+        summaries: [ProviderUsageSummary],
+        billingExpiries: [BillingExpiry],
+        hidesProviderNames: Bool,
+        now: Date
+    ) -> String {
+        let criticalCount = summaries.filter { $0.severity == .critical }.count
+        let warningCount = summaries.filter { $0.severity == .warning }.count
+        let unavailableCount = summaries.filter { $0.severity == .unavailable }.count
+        let healthyCount = summaries.filter { $0.severity == .healthy }.count
+
+        var parts: [String] = []
+        if criticalCount > 0 { parts.append("\(criticalCount) critical") }
+        if warningCount > 0 { parts.append("\(warningCount) warning") }
+        if unavailableCount > 0 { parts.append("\(unavailableCount) unavailable") }
+
+        let expiringSoon = billingExpiries.filter { $0.urgency == .soon || $0.urgency == .expired }
+        if !expiringSoon.isEmpty {
+            let names = expiringSoon.map { entry -> String in
+                hidesProviderNames ? entry.tab.privateName : entry.tab.displayName
+            }.joined(separator: ", ")
+            parts.append("\(names) renewing soon")
+        }
+
+        if parts.isEmpty {
+            return "\(healthyCount) provider\(healthyCount == 1 ? "" : "s") healthy."
+        }
+
+        let prefix = "\(summaries.count) provider\(summaries.count == 1 ? "" : "s")"
+        return "\(prefix) — \(parts.joined(separator: ", "))."
     }
 
     private func isPerProviderEnabled(_ tab: ProviderTab, configuration: NotificationConfiguration) -> Bool {

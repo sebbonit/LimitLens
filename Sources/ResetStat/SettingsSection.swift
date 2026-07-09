@@ -460,6 +460,28 @@ struct SettingsSectionView: View {
                             .frame(width: 65)
                             .disabled(viewModel.configuration.notifications.quietHoursStartHour == nil)
                         }
+
+                        Divider()
+
+                        Toggle("Daily digest", isOn: notificationsDigestBinding)
+                            .font(.caption2)
+
+                        if viewModel.configuration.notifications.dailyDigest {
+                            HStack(spacing: 8) {
+                                Text("Send at")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Picker("Hour", selection: digestHourBinding) {
+                                    ForEach(0..<24, id: \.self) { hour in
+                                        Text("\(hour):00").tag(hour)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .font(.caption2)
+                                .frame(width: 65)
+                            }
+                            .padding(.leading, 26)
+                        }
                     }
                     .padding(.leading, 26)
                 }
@@ -767,6 +789,24 @@ struct SettingsSectionView: View {
                 viewModel.updateConfiguration {
                     $0.notifications.quietHoursEndHour = value >= 0 ? value : nil
                 }
+            }
+        )
+    }
+
+    private var notificationsDigestBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.configuration.notifications.dailyDigest },
+            set: { value in
+                viewModel.updateConfiguration { $0.notifications.dailyDigest = value }
+            }
+        )
+    }
+
+    private var digestHourBinding: Binding<Int> {
+        Binding(
+            get: { viewModel.configuration.notifications.dailyDigestHour },
+            set: { value in
+                viewModel.updateConfiguration { $0.notifications.dailyDigestHour = value }
             }
         )
     }

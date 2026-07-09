@@ -164,6 +164,8 @@ struct ResetStatConfigurationTests {
         #expect(defaults.notifications.perProvider == PerProviderNotificationFlags())
         #expect(defaults.notifications.thresholds == PerProviderThresholds())
         #expect(defaults.notifications.criticalThreshold(for: .codex) == 90)
+        #expect(defaults.notifications.dailyDigest == false)
+        #expect(defaults.notifications.dailyDigestHour == 9)
     }
 
     @Test("Per-provider thresholds round-trip through save and reload")
@@ -182,6 +184,31 @@ struct ResetStatConfigurationTests {
         #expect(reloaded.configuration.notifications.thresholds.openCodeGo == nil)
         #expect(reloaded.configuration.notifications.criticalThreshold(for: .codex) == 50)
         #expect(reloaded.configuration.notifications.criticalThreshold(for: .devin) == 90)
+    }
+
+    @Test("Daily digest configuration round-trips through save and reload")
+    func dailyDigestRoundTrips() {
+        let url = temporaryConfigURL()
+        let store = ResetStatConfigurationStore(url: url)
+        store.configuration.notifications.dailyDigest = true
+        store.configuration.notifications.dailyDigestHour = 14
+        store.save()
+
+        let reloaded = ResetStatConfigurationStore(url: url)
+
+        #expect(reloaded.configuration.notifications.dailyDigest == true)
+        #expect(reloaded.configuration.notifications.dailyDigestHour == 14)
+    }
+
+    @Test("Daily digest hour clamps to valid range")
+    func dailyDigestHourClamps() throws {
+        let tooHigh = #"{"enabled":true,"dailyDigest":true,"dailyDigestHour":99}"#
+        let config = try JSONDecoder().decode(NotificationConfiguration.self, from: Data(tooHigh.utf8))
+        #expect(config.dailyDigestHour == 23)
+
+        let tooLow = #"{"enabled":true,"dailyDigest":true,"dailyDigestHour":-5}"#
+        let config2 = try JSONDecoder().decode(NotificationConfiguration.self, from: Data(tooLow.utf8))
+        #expect(config2.dailyDigestHour == 0)
     }
 
     @Test("Refresh interval round-trips through save and reload")
