@@ -9,6 +9,7 @@ struct OverviewSectionView: View {
     let hidesProviderNames: Bool
     let onSelectTab: (ProviderTab) -> Void
     var paceProjections: [ProviderTab: PaceProjection] = [:]
+    var collectingPaceData: Set<ProviderTab> = []
 
     var body: some View {
         SectionBlock {
@@ -82,6 +83,11 @@ struct OverviewSectionView: View {
                         Text(projection.summaryText)
                             .font(.system(size: 9))
                             .foregroundStyle(projection.willExhaustBeforeReset ? .orange : .secondary)
+                            .lineLimit(1)
+                    } else if collectingPaceData.contains(summary.tab) {
+                        Text("Collecting pace data...")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
                 }

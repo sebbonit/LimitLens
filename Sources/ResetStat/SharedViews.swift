@@ -136,6 +136,19 @@ struct PaceProjectionLine: View {
     }
 }
 
+struct PaceCollectingLine: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "waveform")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("Collecting pace data...")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 struct SMark: View {
     var body: some View {
         Text("S")

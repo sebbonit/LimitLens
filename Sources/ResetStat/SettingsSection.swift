@@ -573,29 +573,43 @@ struct SettingsSectionView: View {
 
                         Divider()
 
-                        HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text("Quiet hours")
                                 .font(.caption2.weight(.semibold))
-                            Spacer()
-                            Picker("Start", selection: quietHoursStartBinding) {
-                                Text("Off").tag(-1)
-                                ForEach(0..<24, id: \.self) { hour in
-                                    Text("\(hour):00").tag(hour)
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Start")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
+                                    Picker("", selection: quietHoursStartBinding) {
+                                        Text("Off").tag(-1)
+                                        ForEach(0..<24, id: \.self) { hour in
+                                            Text("\(hour):00").tag(hour)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .font(.caption2)
+                                    .frame(width: 90)
+                                    .labelsHidden()
                                 }
-                            }
-                            .pickerStyle(.menu)
-                            .font(.caption2)
-                            .frame(width: 65)
-                            Picker("End", selection: quietHoursEndBinding) {
-                                Text("Off").tag(-1)
-                                ForEach(0..<24, id: \.self) { hour in
-                                    Text("\(hour):00").tag(hour)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("End")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
+                                    Picker("", selection: quietHoursEndBinding) {
+                                        Text("Off").tag(-1)
+                                        ForEach(0..<24, id: \.self) { hour in
+                                            Text("\(hour):00").tag(hour)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .font(.caption2)
+                                    .frame(width: 90)
+                                    .labelsHidden()
+                                    .disabled(viewModel.configuration.notifications.quietHoursStartHour == nil)
                                 }
+                                Spacer()
                             }
-                            .pickerStyle(.menu)
-                            .font(.caption2)
-                            .frame(width: 65)
-                            .disabled(viewModel.configuration.notifications.quietHoursStartHour == nil)
                         }
 
                         Divider()
@@ -615,7 +629,9 @@ struct SettingsSectionView: View {
                                 }
                                 .pickerStyle(.menu)
                                 .font(.caption2)
-                                .frame(width: 65)
+                                .frame(width: 90)
+                                .labelsHidden()
+                                Spacer()
                             }
                             .padding(.leading, 26)
                         }

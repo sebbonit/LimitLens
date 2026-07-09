@@ -22,7 +22,7 @@ public struct PaceProjection: Equatable, Sendable {
 public enum UsagePaceProjection {
     /// Minimum elapsed seconds between samples to produce a meaningful projection.
     /// Avoids noisy projections from sub-minute refresh intervals.
-    private static let minimumElapsedSeconds: TimeInterval = 120
+    private static let minimumElapsedSeconds: TimeInterval = 30
 
     public static func project(
         currentPercent: Double,

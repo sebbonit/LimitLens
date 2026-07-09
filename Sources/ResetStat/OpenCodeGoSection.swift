@@ -12,6 +12,7 @@ struct OpenCodeGoSectionView: View {
     var lastUpdated: Date? = nil
     var onRefresh: (() -> Void)? = nil
     var paceProjection: PaceProjection? = nil
+    var isCollectingPaceData: Bool = false
 
     var body: some View {
         SectionBlock {
@@ -29,6 +30,8 @@ struct OpenCodeGoSectionView: View {
 
                 if let paceProjection {
                     PaceProjectionLine(projection: paceProjection)
+                } else if isCollectingPaceData {
+                    PaceCollectingLine()
                 }
 
                 if let snapshot = snapshot, snapshot.hasUsage {

@@ -27,6 +27,7 @@ final class UsageViewModel: ObservableObject {
     @Published var now = Date()
     @Published private(set) var lastFetchAt: [ProviderTab: Date] = [:]
     @Published private(set) var paceProjections: [ProviderTab: PaceProjection] = [:]
+    @Published private(set) var collectingPaceData: Set<ProviderTab> = []
     @Published private(set) var lastErrors: [ProviderTab: String] = [:]
     @Published private(set) var diagnosticTestResults: [ProviderTab: DiagnosticTestResult] = [:]
 
@@ -462,6 +463,7 @@ final class UsageViewModel: ObservableObject {
             snapshot = nil
             paceProjections[.codex] = nil
             previousPaceSamples[.codex] = nil
+            collectingPaceData.remove(.codex)
             lastErrors[.codex] = nil
         }
         if !configuration.providers.cursor.isEnabled {
@@ -469,6 +471,7 @@ final class UsageViewModel: ObservableObject {
             cursorSnapshot = nil
             paceProjections[.cursor] = nil
             previousPaceSamples[.cursor] = nil
+            collectingPaceData.remove(.cursor)
             lastErrors[.cursor] = nil
         }
         if !configuration.providers.devin.isEnabled {
@@ -476,6 +479,7 @@ final class UsageViewModel: ObservableObject {
             desktopQuotaSnapshots = []
             paceProjections[.devin] = nil
             previousPaceSamples[.devin] = nil
+            collectingPaceData.remove(.devin)
             lastErrors[.devin] = nil
         }
         if !configuration.providers.openCodeGo.isEnabled {
@@ -483,6 +487,7 @@ final class UsageViewModel: ObservableObject {
             openCodeGoSnapshot = nil
             paceProjections[.openCodeGo] = nil
             previousPaceSamples[.openCodeGo] = nil
+            collectingPaceData.remove(.openCodeGo)
             lastErrors[.openCodeGo] = nil
         }
     }
@@ -492,6 +497,7 @@ final class UsageViewModel: ObservableObject {
               let percent = summary.percentUsed else {
             previousPaceSamples[tab] = nil
             paceProjections[tab] = nil
+            collectingPaceData.remove(tab)
             return
         }
 
@@ -504,7 +510,15 @@ final class UsageViewModel: ObservableObject {
                 now: now,
                 resetAt: summary.resetAt
             )
-            paceProjections[tab] = projection
+            if let projection {
+                paceProjections[tab] = projection
+                collectingPaceData.remove(tab)
+            } else {
+                // Elapsed too short — keep collecting
+                collectingPaceData.insert(tab)
+            }
+        } else {
+            collectingPaceData.insert(tab)
         }
         previousPaceSamples[tab] = PaceSample(percentUsed: percent, timestamp: now)
     }

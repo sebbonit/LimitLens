@@ -10,7 +10,7 @@ struct UsagePaceProjectionTests {
         let result = UsagePaceProjection.project(
             currentPercent: 60,
             previousPercent: 50,
-            previousTimestamp: now.addingTimeInterval(-60),
+            previousTimestamp: now.addingTimeInterval(-15),
             now: now,
             resetAt: now.addingTimeInterval(3600)
         )

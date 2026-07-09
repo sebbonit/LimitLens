@@ -10,6 +10,7 @@ struct CodexSectionView: View {
     var lastUpdated: Date? = nil
     var onRefresh: (() -> Void)? = nil
     var paceProjection: PaceProjection? = nil
+    var isCollectingPaceData: Bool = false
     @State private var showsResetCreditDetails = false
 
     var body: some View {
@@ -28,6 +29,8 @@ struct CodexSectionView: View {
 
                 if let paceProjection {
                     PaceProjectionLine(projection: paceProjection)
+                } else if isCollectingPaceData {
+                    PaceCollectingLine()
                 }
 
                 VStack(spacing: 10) {
