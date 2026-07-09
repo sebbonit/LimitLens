@@ -1,6 +1,6 @@
 import Foundation
 import LimitLensCore
-import UserNotifications
+@preconcurrency import UserNotifications
 
 struct NotificationRequest: Equatable {
     let identifier: String

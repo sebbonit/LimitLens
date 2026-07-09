@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import LimitLensCore
 import SwiftUI
-import UserNotifications
+@preconcurrency import UserNotifications
 
 @MainActor
 final class UsageViewModel: ObservableObject {
