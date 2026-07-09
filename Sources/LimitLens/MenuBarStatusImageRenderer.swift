@@ -24,7 +24,7 @@ enum MenuBarStatusImageRenderer {
         return NSSize(width: width, height: height)
     }
 
-    static func image(for status: MenuBarStatusSnapshot) -> NSImage {
+    static func image(for status: MenuBarStatusSnapshot, animationPhase: CGFloat = 0) -> NSImage {
         let size = size(for: status)
         let image = NSImage(size: size)
         image.isTemplate = false
@@ -51,7 +51,8 @@ enum MenuBarStatusImageRenderer {
                 drawCountdownPill(
                     center: center,
                     indicator: indicator,
-                    isRefreshing: status.isRefreshing
+                    isRefreshing: status.isRefreshing,
+                    animationPhase: animationPhase
                 )
                 xOffset += width + ringGap
             }
@@ -63,7 +64,8 @@ enum MenuBarStatusImageRenderer {
                     center: center,
                     indicator: indicator,
                     isRefreshing: status.isRefreshing,
-                    hidesProviderNames: status.hidesProviderNames
+                    hidesProviderNames: status.hidesProviderNames,
+                    animationPhase: animationPhase
                 )
             }
         }
@@ -113,7 +115,8 @@ enum MenuBarStatusImageRenderer {
     private static func drawCountdownPill(
         center: NSPoint,
         indicator: MenuBarProviderIndicator,
-        isRefreshing: Bool
+        isRefreshing: Bool,
+        animationPhase: CGFloat
     ) {
         let text = indicator.countdownText
         let textSize = countdownTextSize(for: text)
@@ -135,7 +138,7 @@ enum MenuBarStatusImageRenderer {
         path.stroke()
 
         let percent = max(0, min(100, indicator.percentUsed ?? 0))
-        if percent > 0 {
+        if percent > 0 && !isRefreshing {
             let progressWidth = pillRect.width * CGFloat(percent / 100)
             let progressRect = NSRect(
                 x: pillRect.minX,
@@ -155,6 +158,10 @@ enum MenuBarStatusImageRenderer {
             path.stroke()
         }
 
+        if isRefreshing {
+            drawRefreshShimmer(in: pillRect, path: path, tint: tint, phase: animationPhase)
+        }
+
         (text as NSString).draw(
             at: NSPoint(x: center.x - textSize.width / 2, y: center.y - textSize.height / 2),
             withAttributes: countdownTextAttributes()
@@ -163,9 +170,30 @@ enum MenuBarStatusImageRenderer {
         let badgeCenter = NSPoint(x: pillRect.maxX, y: pillRect.maxY)
         if case .stale = indicator.state {
             drawBadge(center: badgeCenter, color: .systemOrange, offset: NSPoint(x: -2.5, y: -2.5))
-        } else if isRefreshing {
-            drawBadge(center: badgeCenter, color: .systemBlue, offset: NSPoint(x: -2.5, y: -2.5))
         }
+    }
+
+    private static func drawRefreshShimmer(in pillRect: NSRect, path: NSBezierPath, tint: NSColor, phase: CGFloat) {
+        NSGraphicsContext.current?.saveGraphicsState()
+        defer { NSGraphicsContext.current?.restoreGraphicsState() }
+
+        path.addClip()
+
+        let bandWidth = pillRect.width * 0.7
+        let travel = pillRect.width + bandWidth
+        let x = pillRect.minX - bandWidth + CGFloat(phase) * travel
+        let bandRect = NSRect(x: x, y: pillRect.minY, width: bandWidth, height: pillRect.height)
+
+        guard let gradient = NSGradient(colors: [
+            tint.withAlphaComponent(0),
+            tint.withAlphaComponent(0.55),
+            tint.withAlphaComponent(0)
+        ]) else { return }
+        gradient.draw(in: bandRect, angle: 0)
+
+        tint.withAlphaComponent(0.18).setStroke()
+        path.lineWidth = pillLineWidth + 0.8
+        path.stroke()
     }
 
     private static func pillTint(for indicator: MenuBarProviderIndicator) -> NSColor {
@@ -200,7 +228,8 @@ enum MenuBarStatusImageRenderer {
         center: NSPoint,
         indicator: MenuBarProviderIndicator,
         isRefreshing: Bool,
-        hidesProviderNames: Bool
+        hidesProviderNames: Bool,
+        animationPhase: CGFloat
     ) {
         let radius = ringDiameter / 2 - ringLineWidth / 2
         let track = NSBezierPath()
@@ -218,20 +247,39 @@ enum MenuBarStatusImageRenderer {
 
         switch indicator.state {
         case .loading:
-            drawArc(center: center, radius: radius, fraction: 0.35, color: .systemBlue)
+            drawAnimatedFillArc(center: center, radius: radius, indicator: indicator, phase: animationPhase)
             drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames)
         case .unavailable:
             drawUnavailable(center: center, radius: radius)
             drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, alpha: 0.42)
         case .healthy, .warning, .critical, .stale:
-            drawProgressArc(center: center, radius: radius, indicator: indicator)
+            if isRefreshing {
+                drawAnimatedFillArc(center: center, radius: radius, indicator: indicator, phase: animationPhase)
+            } else {
+                drawProgressArc(center: center, radius: radius, indicator: indicator)
+            }
             drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames)
             if case .stale = indicator.state {
                 drawBadge(center: center, color: .systemOrange, offset: NSPoint(x: 4.5, y: 4.5))
-            } else if isRefreshing {
-                drawBadge(center: center, color: .systemBlue, offset: NSPoint(x: 4.5, y: 4.5))
             }
         }
+    }
+
+    private static func drawAnimatedFillArc(
+        center: NSPoint,
+        radius: CGFloat,
+        indicator: MenuBarProviderIndicator,
+        phase: CGFloat
+    ) {
+        // Breathe 0 -> 1 -> 0 so the ring fills with the gradient and empties, looping.
+        let triangle = phase < 0.5 ? phase * 2 : 2 - phase * 2
+        let fraction = max(0.04, min(1, triangle))
+        drawGradientArc(
+            center: center,
+            radius: radius,
+            fraction: fraction,
+            colors: lowUsageGradient(for: indicator.tab)
+        )
     }
 
     private static func drawArc(center: NSPoint, radius: CGFloat, fraction: CGFloat, color: NSColor) {
