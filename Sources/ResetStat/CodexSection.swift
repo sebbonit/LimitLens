@@ -9,6 +9,7 @@ struct CodexSectionView: View {
     var isRefreshing: Bool = false
     var lastUpdated: Date? = nil
     var onRefresh: (() -> Void)? = nil
+    var paceProjection: PaceProjection? = nil
     @State private var showsResetCreditDetails = false
 
     var body: some View {
@@ -24,6 +25,10 @@ struct CodexSectionView: View {
                     lastUpdated: lastUpdated,
                     onRefresh: onRefresh
                 )
+
+                if let paceProjection {
+                    PaceProjectionLine(projection: paceProjection)
+                }
 
                 VStack(spacing: 10) {
                     resetWindowView(title: "Primary", window: snapshot.rateLimit.primary, tint: .blue)

@@ -121,6 +121,21 @@ struct StatusLine: View {
     }
 }
 
+struct PaceProjectionLine: View {
+    let projection: PaceProjection
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: projection.willExhaustBeforeReset ? "exclamationmark.triangle" : "checkmark.circle")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(projection.willExhaustBeforeReset ? .orange : .secondary)
+            Text(projection.summaryText)
+                .font(.caption2)
+                .foregroundStyle(projection.willExhaustBeforeReset ? .orange : .secondary)
+        }
+    }
+}
+
 struct SMark: View {
     var body: some View {
         Text("S")

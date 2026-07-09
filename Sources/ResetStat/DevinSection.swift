@@ -10,6 +10,7 @@ struct DevinSectionView: View {
     var isRefreshing: Bool = false
     var lastUpdated: Date? = nil
     var onRefresh: (() -> Void)? = nil
+    var paceProjection: PaceProjection? = nil
 
     var body: some View {
         SectionBlock {
@@ -24,6 +25,10 @@ struct DevinSectionView: View {
                     lastUpdated: lastUpdated,
                     onRefresh: onRefresh
                 )
+
+                if let paceProjection {
+                    PaceProjectionLine(projection: paceProjection)
+                }
 
                 if !snapshots.isEmpty {
                     VStack(spacing: 12) {

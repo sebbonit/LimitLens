@@ -11,6 +11,7 @@ struct OpenCodeGoSectionView: View {
     var isRefreshing: Bool = false
     var lastUpdated: Date? = nil
     var onRefresh: (() -> Void)? = nil
+    var paceProjection: PaceProjection? = nil
 
     var body: some View {
         SectionBlock {
@@ -25,6 +26,10 @@ struct OpenCodeGoSectionView: View {
                     lastUpdated: lastUpdated,
                     onRefresh: onRefresh
                 )
+
+                if let paceProjection {
+                    PaceProjectionLine(projection: paceProjection)
+                }
 
                 if let snapshot = snapshot, snapshot.hasUsage {
                     openCodeGoUsageView(snapshot)

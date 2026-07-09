@@ -26,6 +26,13 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var configuration: ResetStatConfiguration
     @Published var now = Date()
     @Published private(set) var lastFetchAt: [ProviderTab: Date] = [:]
+    @Published private(set) var paceProjections: [ProviderTab: PaceProjection] = [:]
+
+    private struct PaceSample {
+        let percentUsed: Double
+        let timestamp: Date
+    }
+    private var previousPaceSamples: [ProviderTab: PaceSample] = [:]
 
     var isProviderRefreshing: (ProviderTab) -> Bool {
         { self.refreshingProviders.contains($0) }
@@ -300,6 +307,7 @@ final class UsageViewModel: ObservableObject {
             snapshot = try await withRetry { try await codexService().fetchSnapshot() }
             state = .loaded
             lastFetchAt[.codex] = Date()
+            updatePaceProjection(for: .codex)
         } catch let error as CodexUsageError {
             state = .failed(error.localizedDescription)
         } catch {
@@ -319,6 +327,7 @@ final class UsageViewModel: ObservableObject {
             cursorSnapshot = try await withRetry { try await cursorUsageService().fetchSnapshot() }
             cursorState = .loaded
             lastFetchAt[.cursor] = Date()
+            updatePaceProjection(for: .cursor)
         } catch let error as CursorUsageError {
             cursorState = .failed(error.localizedDescription)
         } catch {
@@ -339,6 +348,9 @@ final class UsageViewModel: ObservableObject {
             desktopQuotaSnapshots = snapshots
             desktopQuotaState = snapshots.isEmpty ? .failed("Devin quota cache unavailable.") : .loaded
             lastFetchAt[.devin] = Date()
+            if !snapshots.isEmpty {
+                updatePaceProjection(for: .devin)
+            }
         } catch {
             desktopQuotaState = .failed("Devin quotas are temporarily unavailable.")
         }
@@ -356,6 +368,7 @@ final class UsageViewModel: ObservableObject {
             openCodeGoSnapshot = try await withRetry { try await openCodeGoUsageService().fetchSnapshot() }
             openCodeGoState = .loaded
             lastFetchAt[.openCodeGo] = Date()
+            updatePaceProjection(for: .openCodeGo)
         } catch let error as CodexUsageError {
             openCodeGoState = .failed(error.localizedDescription)
         } catch {
@@ -432,19 +445,49 @@ final class UsageViewModel: ObservableObject {
         if !configuration.providers.codex.isEnabled {
             state = .disabled
             snapshot = nil
+            paceProjections[.codex] = nil
+            previousPaceSamples[.codex] = nil
         }
         if !configuration.providers.cursor.isEnabled {
             cursorState = .disabled
             cursorSnapshot = nil
+            paceProjections[.cursor] = nil
+            previousPaceSamples[.cursor] = nil
         }
         if !configuration.providers.devin.isEnabled {
             desktopQuotaState = .disabled
             desktopQuotaSnapshots = []
+            paceProjections[.devin] = nil
+            previousPaceSamples[.devin] = nil
         }
         if !configuration.providers.openCodeGo.isEnabled {
             openCodeGoState = .disabled
             openCodeGoSnapshot = nil
+            paceProjections[.openCodeGo] = nil
+            previousPaceSamples[.openCodeGo] = nil
         }
+    }
+
+    private func updatePaceProjection(for tab: ProviderTab) {
+        guard let summary = providerSummaries.first(where: { $0.tab == tab }),
+              let percent = summary.percentUsed else {
+            previousPaceSamples[tab] = nil
+            paceProjections[tab] = nil
+            return
+        }
+
+        let now = Date()
+        if let previous = previousPaceSamples[tab] {
+            let projection = UsagePaceProjection.project(
+                currentPercent: percent,
+                previousPercent: previous.percentUsed,
+                previousTimestamp: previous.timestamp,
+                now: now,
+                resetAt: summary.resetAt
+            )
+            paceProjections[tab] = projection
+        }
+        previousPaceSamples[tab] = PaceSample(percentUsed: percent, timestamp: now)
     }
 
     private func refreshLoop() async {

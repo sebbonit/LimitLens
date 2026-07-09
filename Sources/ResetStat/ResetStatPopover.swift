@@ -50,7 +50,8 @@ struct ResetStatPopover: View {
                 billingExpiries: viewModel.billingExpiries,
                 now: viewModel.now,
                 hidesProviderNames: viewModel.hidesProviderNames,
-                onSelectTab: { selectedTab = $0 }
+                onSelectTab: { selectedTab = $0 },
+                paceProjections: viewModel.paceProjections
             )
         case .codex:
             if let snapshot = viewModel.snapshot {
@@ -60,7 +61,8 @@ struct ResetStatPopover: View {
                     hidesProviderNames: viewModel.hidesProviderNames,
                     isRefreshing: viewModel.isProviderRefreshing(.codex),
                     lastUpdated: viewModel.lastFetchAt[.codex],
-                    onRefresh: { Task { await viewModel.refreshProvider(.codex) } }
+                    onRefresh: { Task { await viewModel.refreshProvider(.codex) } },
+                    paceProjection: viewModel.paceProjections[.codex]
                 )
             } else {
                 unavailableView
@@ -73,7 +75,8 @@ struct ResetStatPopover: View {
                 hidesProviderNames: viewModel.hidesProviderNames,
                 isRefreshing: viewModel.isProviderRefreshing(.cursor),
                 lastUpdated: viewModel.lastFetchAt[.cursor],
-                onRefresh: { Task { await viewModel.refreshProvider(.cursor) } }
+                onRefresh: { Task { await viewModel.refreshProvider(.cursor) } },
+                paceProjection: viewModel.paceProjections[.cursor]
             )
         case .devin:
             DevinSectionView(
@@ -83,7 +86,8 @@ struct ResetStatPopover: View {
                 hidesProviderNames: viewModel.hidesProviderNames,
                 isRefreshing: viewModel.isProviderRefreshing(.devin),
                 lastUpdated: viewModel.lastFetchAt[.devin],
-                onRefresh: { Task { await viewModel.refreshProvider(.devin) } }
+                onRefresh: { Task { await viewModel.refreshProvider(.devin) } },
+                paceProjection: viewModel.paceProjections[.devin]
             )
         case .openCodeGo:
             OpenCodeGoSectionView(
@@ -94,7 +98,8 @@ struct ResetStatPopover: View {
                 dashboardURL: viewModel.openCodeGoDashboardURL,
                 isRefreshing: viewModel.isProviderRefreshing(.openCodeGo),
                 lastUpdated: viewModel.lastFetchAt[.openCodeGo],
-                onRefresh: { Task { await viewModel.refreshProvider(.openCodeGo) } }
+                onRefresh: { Task { await viewModel.refreshProvider(.openCodeGo) } },
+                paceProjection: viewModel.paceProjections[.openCodeGo]
             )
         case .settings:
             SettingsSectionView(viewModel: viewModel, selectedTab: $selectedTab)

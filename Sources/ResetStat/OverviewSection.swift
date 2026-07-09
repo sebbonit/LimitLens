@@ -8,6 +8,7 @@ struct OverviewSectionView: View {
     let now: Date
     let hidesProviderNames: Bool
     let onSelectTab: (ProviderTab) -> Void
+    var paceProjections: [ProviderTab: PaceProjection] = [:]
 
     var body: some View {
         SectionBlock {
@@ -77,6 +78,12 @@ struct OverviewSectionView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                    if let projection = paceProjections[summary.tab] {
+                        Text(projection.summaryText)
+                            .font(.system(size: 9))
+                            .foregroundStyle(projection.willExhaustBeforeReset ? .orange : .secondary)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer()
