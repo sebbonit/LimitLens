@@ -199,6 +199,103 @@ struct UsageNotificationTests {
 
         #expect(notifier.requests.isEmpty)
     }
+
+    @Test("Custom critical threshold fires below default 90%")
+    func customThresholdFiresBelowDefault() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.thresholds.codex = 50
+
+        // 60% is below the default 90% but above the custom 50% threshold
+        let summary = makeSummary(tab: .codex, severity: .warning, percentUsed: 60)
+        await coordinator.evaluate(
+            summaries: [summary],
+            billingExpiries: [],
+            loadStates: [.codex: .loaded],
+            configuration: config,
+            hidesProviderNames: false,
+            now: Date()
+        )
+
+        #expect(notifier.requests.count == 1)
+        #expect(notifier.requests[0].identifier == "critical-codex")
+        #expect(notifier.requests[0].body.contains("60%"))
+    }
+
+    @Test("Custom critical threshold does not fire when below threshold")
+    func customThresholdDoesNotFireBelowThreshold() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.thresholds.codex = 80
+
+        // 75% is below the custom 80% threshold
+        let summary = makeSummary(tab: .codex, severity: .warning, percentUsed: 75)
+        await coordinator.evaluate(
+            summaries: [summary],
+            billingExpiries: [],
+            loadStates: [.codex: .loaded],
+            configuration: config,
+            hidesProviderNames: false,
+            now: Date()
+        )
+
+        #expect(notifier.requests.isEmpty)
+    }
+
+    @Test("Per-provider threshold only affects configured provider")
+    func perProviderThresholdOnlyAffectsConfiguredProvider() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        config.thresholds.codex = 50
+        // Cursor uses default 90%
+
+        let codexSummary = makeSummary(tab: .codex, severity: .warning, percentUsed: 55)
+        let cursorSummary = makeSummary(tab: .cursor, severity: .warning, percentUsed: 55)
+
+        await coordinator.evaluate(
+            summaries: [codexSummary, cursorSummary],
+            billingExpiries: [],
+            loadStates: [.codex: .loaded, .cursor: .loaded],
+            configuration: config,
+            hidesProviderNames: false,
+            now: Date()
+        )
+
+        #expect(notifier.requests.count == 1)
+        #expect(notifier.requests[0].identifier == "critical-codex")
+    }
+
+    @Test("Nil threshold uses default 90%")
+    func nilThresholdUsesDefault() async {
+        let notifier = RecordingNotifier()
+        let coordinator = NotificationCoordinator(notifier: notifier)
+
+        var config = NotificationConfiguration()
+        config.enabled = true
+        // thresholds left as nil defaults
+
+        // 89% should not fire with default 90%
+        let summary = makeSummary(tab: .codex, severity: .warning, percentUsed: 89)
+        await coordinator.evaluate(
+            summaries: [summary],
+            billingExpiries: [],
+            loadStates: [.codex: .loaded],
+            configuration: config,
+            hidesProviderNames: false,
+            now: Date()
+        )
+
+        #expect(notifier.requests.isEmpty)
+    }
 }
 
 private final class RecordingNotifier: Notifier, @unchecked Sendable {

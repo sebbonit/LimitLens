@@ -15,7 +15,7 @@ protocol Notifier: Sendable {
 @MainActor
 final class NotificationCoordinator {
     private let notifier: Notifier
-    private var previousSeverity: [ProviderTab: UsageSeverity] = [:]
+    private var previousOverCritical: Set<ProviderTab> = []
     private var previousUrgency: [ProviderTab: UsageFormatting.ExpiryUrgency] = [:]
     private var wasUnavailable: Set<ProviderTab> = []
 
@@ -71,8 +71,11 @@ final class NotificationCoordinator {
         hidesProviderNames: Bool,
         configuration: NotificationConfiguration
     ) async {
-        let previous = previousSeverity[tab] ?? .healthy
-        if summary.severity == .critical && previous != .critical {
+        let threshold = configuration.criticalThreshold(for: tab)
+        let isOverThreshold = summary.percentUsed.map { $0 >= Double(threshold) } ?? false
+        let wasOverThreshold = previousOverCritical.contains(tab)
+
+        if isOverThreshold && !wasOverThreshold {
             let name = hidesProviderNames ? tab.privateName : tab.displayName
             let percent = summary.percentUsed.map { Int($0.rounded()) } ?? 0
             let resetText = summary.resetAt.map { UsageFormatting.timeRemainingText(date: $0, now: Date()) } ?? "unknown reset"
@@ -82,7 +85,12 @@ final class NotificationCoordinator {
                 body: "\(percent)% used — resets in \(resetText)"
             ))
         }
-        previousSeverity[tab] = summary.severity
+
+        if isOverThreshold {
+            previousOverCritical.insert(tab)
+        } else {
+            previousOverCritical.remove(tab)
+        }
     }
 
     private func checkBillingExpiry(

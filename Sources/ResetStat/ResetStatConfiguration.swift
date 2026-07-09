@@ -164,6 +164,8 @@ struct RefreshConfiguration: Codable, Equatable {
 }
 
 struct NotificationConfiguration: Codable, Equatable {
+    static let defaultCriticalThreshold = 90
+
     var enabled: Bool
     var criticalUsage: Bool
     var billingExpiring: Bool
@@ -171,6 +173,7 @@ struct NotificationConfiguration: Codable, Equatable {
     var quietHoursStartHour: Int?
     var quietHoursEndHour: Int?
     var perProvider: PerProviderNotificationFlags
+    var thresholds: PerProviderThresholds
 
     init(
         enabled: Bool = false,
@@ -179,7 +182,8 @@ struct NotificationConfiguration: Codable, Equatable {
         providerUnavailable: Bool = true,
         quietHoursStartHour: Int? = nil,
         quietHoursEndHour: Int? = nil,
-        perProvider: PerProviderNotificationFlags = PerProviderNotificationFlags()
+        perProvider: PerProviderNotificationFlags = PerProviderNotificationFlags(),
+        thresholds: PerProviderThresholds = PerProviderThresholds()
     ) {
         self.enabled = enabled
         self.criticalUsage = criticalUsage
@@ -188,6 +192,7 @@ struct NotificationConfiguration: Codable, Equatable {
         self.quietHoursStartHour = quietHoursStartHour
         self.quietHoursEndHour = quietHoursEndHour
         self.perProvider = perProvider
+        self.thresholds = thresholds
     }
 
     enum CodingKeys: String, CodingKey {
@@ -198,6 +203,7 @@ struct NotificationConfiguration: Codable, Equatable {
         case quietHoursStartHour
         case quietHoursEndHour
         case perProvider
+        case thresholds
     }
 
     init(from decoder: Decoder) throws {
@@ -209,6 +215,33 @@ struct NotificationConfiguration: Codable, Equatable {
         self.quietHoursStartHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursStartHour)
         self.quietHoursEndHour = try container.decodeIfPresent(Int.self, forKey: .quietHoursEndHour)
         self.perProvider = try container.decodeIfPresent(PerProviderNotificationFlags.self, forKey: .perProvider) ?? PerProviderNotificationFlags()
+        self.thresholds = try container.decodeIfPresent(PerProviderThresholds.self, forKey: .thresholds) ?? PerProviderThresholds()
+    }
+
+    func criticalThreshold(for tab: ProviderTab) -> Int {
+        let value: Int?
+        switch tab {
+        case .codex: value = thresholds.codex
+        case .cursor: value = thresholds.cursor
+        case .devin: value = thresholds.devin
+        case .openCodeGo: value = thresholds.openCodeGo
+        case .overview, .settings: value = nil
+        }
+        return value ?? Self.defaultCriticalThreshold
+    }
+}
+
+struct PerProviderThresholds: Codable, Equatable {
+    var codex: Int?
+    var cursor: Int?
+    var devin: Int?
+    var openCodeGo: Int?
+
+    init(codex: Int? = nil, cursor: Int? = nil, devin: Int? = nil, openCodeGo: Int? = nil) {
+        self.codex = codex
+        self.cursor = cursor
+        self.devin = devin
+        self.openCodeGo = openCodeGo
     }
 }
 

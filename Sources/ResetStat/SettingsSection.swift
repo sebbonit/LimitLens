@@ -423,6 +423,19 @@ struct SettingsSectionView: View {
 
                         Divider()
 
+                        Text("Critical threshold")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        VStack(spacing: 4) {
+                            notificationThresholdRow(.codex, label: "Codex")
+                            notificationThresholdRow(.cursor, label: "Cursor")
+                            notificationThresholdRow(.devin, label: "Devin")
+                            notificationThresholdRow(.openCodeGo, label: "Go")
+                        }
+
+                        Divider()
+
                         HStack(spacing: 8) {
                             Text("Quiet hours")
                                 .font(.caption2.weight(.semibold))
@@ -457,6 +470,78 @@ struct SettingsSectionView: View {
     private func notificationProviderToggle(_ tab: ProviderTab, label: String) -> some View {
         Toggle(label, isOn: notificationPerProviderBinding(tab))
             .font(.caption2)
+    }
+
+    private func notificationThresholdRow(_ tab: ProviderTab, label: String) -> some View {
+        HStack(spacing: 8) {
+            Text(providerName(label, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
+                .font(.caption2)
+                .frame(width: 80, alignment: .leading)
+            Spacer()
+            Picker("", selection: notificationThresholdEnabledBinding(tab)) {
+                Text("Default (90%)").tag(false)
+                Text("Custom").tag(true)
+            }
+            .pickerStyle(.menu)
+            .font(.caption2)
+            .frame(width: 120)
+            .labelsHidden()
+
+            if notificationThresholdEnabledBinding(tab).wrappedValue {
+                Stepper(
+                    "\(notificationThresholdValueBinding(tab).wrappedValue)%",
+                    value: notificationThresholdValueBinding(tab),
+                    in: 1...100
+                )
+                .font(.caption2)
+                .frame(width: 70)
+            }
+        }
+    }
+
+    private func notificationThresholdEnabledBinding(_ tab: ProviderTab) -> Binding<Bool> {
+        Binding(
+            get: { notificationThresholdValue(tab) != nil },
+            set: { enabled in
+                viewModel.updateConfiguration {
+                    let value = enabled ? NotificationConfiguration.defaultCriticalThreshold : nil
+                    switch tab {
+                    case .codex: $0.notifications.thresholds.codex = value
+                    case .cursor: $0.notifications.thresholds.cursor = value
+                    case .devin: $0.notifications.thresholds.devin = value
+                    case .openCodeGo: $0.notifications.thresholds.openCodeGo = value
+                    case .overview, .settings: break
+                    }
+                }
+            }
+        )
+    }
+
+    private func notificationThresholdValueBinding(_ tab: ProviderTab) -> Binding<Int> {
+        Binding(
+            get: { notificationThresholdValue(tab) ?? NotificationConfiguration.defaultCriticalThreshold },
+            set: { value in
+                viewModel.updateConfiguration {
+                    switch tab {
+                    case .codex: $0.notifications.thresholds.codex = value
+                    case .cursor: $0.notifications.thresholds.cursor = value
+                    case .devin: $0.notifications.thresholds.devin = value
+                    case .openCodeGo: $0.notifications.thresholds.openCodeGo = value
+                    case .overview, .settings: break
+                    }
+                }
+            }
+        )
+    }
+
+    private func notificationThresholdValue(_ tab: ProviderTab) -> Int? {
+        switch tab {
+        case .codex: return viewModel.configuration.notifications.thresholds.codex
+        case .cursor: return viewModel.configuration.notifications.thresholds.cursor
+        case .devin: return viewModel.configuration.notifications.thresholds.devin
+        case .openCodeGo: return viewModel.configuration.notifications.thresholds.openCodeGo
+        case .overview, .settings: return nil
+        }
     }
 
     // MARK: - Helpers

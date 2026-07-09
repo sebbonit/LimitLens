@@ -162,6 +162,26 @@ struct ResetStatConfigurationTests {
         #expect(defaults.notifications.quietHoursStartHour == nil)
         #expect(defaults.notifications.quietHoursEndHour == nil)
         #expect(defaults.notifications.perProvider == PerProviderNotificationFlags())
+        #expect(defaults.notifications.thresholds == PerProviderThresholds())
+        #expect(defaults.notifications.criticalThreshold(for: .codex) == 90)
+    }
+
+    @Test("Per-provider thresholds round-trip through save and reload")
+    func perProviderThresholdsRoundTrip() {
+        let url = temporaryConfigURL()
+        let store = ResetStatConfigurationStore(url: url)
+        store.configuration.notifications.thresholds.codex = 50
+        store.configuration.notifications.thresholds.cursor = 75
+        store.save()
+
+        let reloaded = ResetStatConfigurationStore(url: url)
+
+        #expect(reloaded.configuration.notifications.thresholds.codex == 50)
+        #expect(reloaded.configuration.notifications.thresholds.cursor == 75)
+        #expect(reloaded.configuration.notifications.thresholds.devin == nil)
+        #expect(reloaded.configuration.notifications.thresholds.openCodeGo == nil)
+        #expect(reloaded.configuration.notifications.criticalThreshold(for: .codex) == 50)
+        #expect(reloaded.configuration.notifications.criticalThreshold(for: .devin) == 90)
     }
 
     @Test("Refresh interval round-trips through save and reload")
