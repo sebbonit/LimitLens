@@ -13,19 +13,24 @@ struct SettingsSectionView: View {
     @State private var expandedProvider: ProviderTab?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if viewModel.configuration.setup.showsFirstLaunchSetup {
-                firstLaunchSetupView
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if viewModel.configuration.setup.showsFirstLaunchSetup {
+                    firstLaunchSetupView
+                }
 
-            providersSection
-            openCodeGoAuthSection
-            menuBarSection
-            refreshSection
-            notificationsSection
-            diagnosticsSection
-            resetSection
+                providersSection
+                openCodeGoAuthSection
+                menuBarSection
+                refreshSection
+                notificationsSection
+                diagnosticsSection
+                resetSection
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .scrollIndicators(.visible)
+        .frame(maxHeight: 520)
         .onAppear {
             if !didLoadConfig {
                 didLoadConfig = true
