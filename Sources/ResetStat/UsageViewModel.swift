@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import ResetStatCore
 import SwiftUI
@@ -38,6 +39,10 @@ final class UsageViewModel: ObservableObject {
     private var didStartLoops = false
     private var refreshingProviders: Set<ProviderTab> = []
     private let notificationCoordinator: NotificationCoordinator
+    private var refreshTask: Task<Void, Never>?
+    private var refreshLoopTask: Task<Void, Never>?
+    private var clockLoopTask: Task<Void, Never>?
+    private var wakeObserver: NSObjectProtocol?
 
     convenience init(configurationStore: ResetStatConfigurationStore = ResetStatConfigurationStore()) {
         self.init(
@@ -90,8 +95,32 @@ final class UsageViewModel: ObservableObject {
         guard !didStartLoops else { return }
         didStartLoops = true
 
-        Task { await refreshLoop() }
-        Task { await clockLoop() }
+        refreshLoopTask = Task { await refreshLoop() }
+        clockLoopTask = Task { await clockLoop() }
+        observeWorkspaceWake()
+    }
+
+    /// System sleep pauses `Task.sleep` (its clock stops while suspended) and
+    /// can leave in-flight network requests hung after the network drops on
+    /// wake. Without handling this, `isRefreshing` stays stuck `true`, which
+    /// both pins the menu-bar refresh badges on and disables the per-provider
+    /// refresh buttons until the app is restarted.
+    private func observeWorkspaceWake() {
+        wakeObserver = NotificationCenter.default.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.handleSystemWake() }
+        }
+    }
+
+    private func handleSystemWake() {
+        now = Date()
+        refreshTask?.cancel()
+        refreshingProviders.removeAll()
+        updateIsRefreshing()
+        refreshTask = Task { await refresh() }
     }
 
     func refresh() async {
@@ -420,7 +449,8 @@ final class UsageViewModel: ObservableObject {
 
     private func refreshLoop() async {
         while !Task.isCancelled {
-            await refresh()
+            refreshTask = Task { await refresh() }
+            await refreshTask?.value
             let interval = configuration.refresh.intervalSeconds
             try? await Task.sleep(for: .seconds(interval))
         }
