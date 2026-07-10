@@ -46,6 +46,7 @@ extension UsageViewModel {
             tab: summary.tab,
             state: state,
             percentUsed: summary.percentUsed,
+            secondaryPercentUsed: summary.secondaryPercentUsed,
             message: menuBarMessage(for: summary, state: state),
             barGlyph: barGlyph(for: state, percentUsed: summary.percentUsed),
             countdownText: menuBarCountdownText(for: summary, state: state)

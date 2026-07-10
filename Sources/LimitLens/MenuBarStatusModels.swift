@@ -7,6 +7,7 @@ struct ProviderUsageSummary: Identifiable {
     let detail: String
     let subdetail: String
     let secondaryDetail: String?
+    let secondaryPercentUsed: Double?
     let percentUsed: Double?
     let resetAt: Date?
     let severity: UsageSeverity
@@ -38,6 +39,7 @@ struct MenuBarProviderIndicator: Identifiable, Equatable {
     let tab: ProviderTab
     let state: MenuBarIndicatorState
     let percentUsed: Double?
+    let secondaryPercentUsed: Double?
     let message: String
     let barGlyph: String
     let countdownText: String
