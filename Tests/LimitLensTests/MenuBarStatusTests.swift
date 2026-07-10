@@ -33,6 +33,28 @@ struct MenuBarStatusTests {
         #expect(status.helpText.contains("Codex Daily 92% used"))
     }
 
+    @Test("Exhausted shortest Codex window drives menu bar ring")
+    func exhaustedShortestCodexWindowDrivesMenuBarRing() async {
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(
+                primaryPercent: 100,
+                primaryDurationMinutes: 300,
+                secondaryPercent: 15,
+                secondaryDurationMinutes: 10_080
+            ))),
+            cursor: MockCursorUsageClient(result: .success(cursorSnapshot(percent: 25))),
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80)])),
+            openCodeGo: MockOpenCodeGoUsageClient(result: .success(openCodeGoSnapshot(percent: 5)))
+        )
+
+        await viewModel.refresh()
+        let codex = viewModel.menuBarStatus.indicators.first { $0.tab == .codex }
+
+        #expect(codex?.percentUsed == 100)
+        #expect(codex?.state == .critical)
+        #expect(viewModel.menuBarStatus.helpText.contains("Codex 5h 100% used"))
+    }
+
     @Test("Warning provider drives title when no provider is critical")
     func warningProviderDrivesTitle() async {
         let viewModel = makeViewModel(
@@ -306,7 +328,22 @@ private enum TestError: Error {
     case unavailable
 }
 
-private func codexSnapshot(primaryPercent: Int, resetsInSeconds: TimeInterval = 3_600) -> LimitLensSnapshot {
+private func codexSnapshot(
+    primaryPercent: Int,
+    resetsInSeconds: TimeInterval = 3_600,
+    primaryDurationMinutes: Int = 1_440,
+    secondaryPercent: Int? = nil,
+    secondaryDurationMinutes: Int = 10_080
+) -> LimitLensSnapshot {
+    let secondaryJSON = secondaryPercent.map {
+        """
+        {
+          "resetsAt": \(Int(Date().addingTimeInterval(86_400).timeIntervalSince1970)),
+          "usedPercent": \($0),
+          "windowDurationMins": \(secondaryDurationMinutes)
+        }
+        """
+    } ?? "null"
     let rateLimit: RateLimitSnapshot = decodeJSON(
         """
         {
@@ -318,10 +355,10 @@ private func codexSnapshot(primaryPercent: Int, resetsInSeconds: TimeInterval = 
           "primary": {
             "resetsAt": \(Int(Date().addingTimeInterval(resetsInSeconds).timeIntervalSince1970)),
             "usedPercent": \(primaryPercent),
-            "windowDurationMins": 1440
+            "windowDurationMins": \(primaryDurationMinutes)
           },
           "rateLimitReachedType": null,
-          "secondary": null
+          "secondary": \(secondaryJSON)
         }
         """
     )
