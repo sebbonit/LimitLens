@@ -55,6 +55,43 @@ struct MenuBarStatusTests {
         #expect(viewModel.menuBarStatus.helpText.contains("Codex 5h 100% used"))
     }
 
+    @Test("Secondary limit percent flows through to menu bar indicator")
+    func secondaryPercentFlowsToIndicator() async {
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(
+                primaryPercent: 30,
+                primaryDurationMinutes: 1_440,
+                secondaryPercent: 75,
+                secondaryDurationMinutes: 10_080
+            ))),
+            cursor: MockCursorUsageClient(result: .success(cursorSnapshot(percent: 25))),
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80)])),
+            openCodeGo: MockOpenCodeGoUsageClient(result: .success(openCodeGoSnapshot(percent: 5)))
+        )
+
+        await viewModel.refresh()
+        let codex = viewModel.menuBarStatus.indicators.first { $0.tab == .codex }
+
+        #expect(codex?.percentUsed == 30)
+        #expect(codex?.secondaryPercentUsed == 75)
+        #expect(codex?.state == .healthy)
+    }
+
+    @Test("Secondary percent is nil when provider has no secondary limit")
+    func secondaryPercentNilWithoutSecondaryLimit() async {
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 42))),
+            cursor: MockCursorUsageClient(result: .success(cursorSnapshot(percent: 25))),
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80)])),
+            openCodeGo: MockOpenCodeGoUsageClient(result: .success(openCodeGoSnapshot(percent: 5)))
+        )
+
+        await viewModel.refresh()
+        let cursor = viewModel.menuBarStatus.indicators.first { $0.tab == .cursor }
+
+        #expect(cursor?.secondaryPercentUsed == nil)
+    }
+
     @Test("Warning provider drives title when no provider is critical")
     func warningProviderDrivesTitle() async {
         let viewModel = makeViewModel(

@@ -441,6 +441,7 @@ private func makeSummary(tab: ProviderTab, severity: UsageSeverity, percentUsed:
         detail: "Test",
         subdetail: "Test subdetail",
         secondaryDetail: nil,
+        secondaryPercentUsed: nil,
         percentUsed: percentUsed,
         resetAt: Date().addingTimeInterval(3_600),
         severity: severity

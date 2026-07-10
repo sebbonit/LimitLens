@@ -57,33 +57,41 @@ struct CursorSectionView: View {
     }
 
     private func cursorUsageView(_ cursor: CursorUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            UsageMeter(
+        VStack(alignment: .leading, spacing: 10) {
+            UsageCard(
                 label: "Plan usage",
                 percentUsed: cursor.usedPercent,
-                usageText: "\(UsageFormatting.usd(cents: cursor.remainingCents)) left",
-                resetText: "Resets \(cursorResetText(cursor.billingCycleEnd, now: now))",
+                leadingDetail: cursor.remainingCents.map { "\(UsageFormatting.usd(cents: $0)) left" },
+                trailingDetail: "Resets \(cursorResetText(cursor.billingCycleEnd, now: now))",
                 tint: .purple
             )
 
             if cursor.autoPercentUsed != nil || cursor.apiPercentUsed != nil {
-                Divider()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Breakdown")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
 
-                VStack(spacing: 6) {
-                    cursorLimitView(
-                        title: "Auto",
-                        percentUsed: cursor.autoPercentUsed,
-                        spendCents: cursor.autoSpendCents,
-                        limitCents: cursor.autoLimitCents,
-                        tint: .purple
-                    )
-                    cursorLimitView(
-                        title: "API",
-                        percentUsed: cursor.apiPercentUsed,
-                        spendCents: cursor.apiSpendCents,
-                        limitCents: cursor.apiLimitCents,
-                        tint: .indigo
-                    )
+                    HStack(alignment: .top, spacing: 8) {
+                        if cursor.autoPercentUsed != nil {
+                            cursorLimitView(
+                                title: "Auto",
+                                percentUsed: cursor.autoPercentUsed,
+                                spendCents: cursor.autoSpendCents,
+                                limitCents: cursor.autoLimitCents,
+                                tint: .purple
+                            )
+                        }
+                        if cursor.apiPercentUsed != nil {
+                            cursorLimitView(
+                                title: "API",
+                                percentUsed: cursor.apiPercentUsed,
+                                spendCents: cursor.apiSpendCents,
+                                limitCents: cursor.apiLimitCents,
+                                tint: .indigo
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -96,11 +104,11 @@ struct CursorSectionView: View {
         limitCents: Int?,
         tint: Color
     ) -> some View {
-        UsageMeter(
+        UsageCard(
             label: title,
             percentUsed: percentUsed,
-            usageText: "\(UsageFormatting.usd(cents: spendCents)) used",
-            resetText: "Limit \(UsageFormatting.usd(cents: limitCents))",
+            leadingDetail: spendCents.map { "\(UsageFormatting.usd(cents: $0)) used" },
+            trailingDetail: limitCents.map { "Limit \(UsageFormatting.usd(cents: $0))" },
             tint: tint
         )
     }

@@ -116,15 +116,19 @@ struct LimitLensPopover: View {
     }
 
     private var tabBar: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 3) {
             ForEach(viewModel.visibleTabs) { tab in
                 tabButton(for: tab)
             }
         }
-        .padding(3)
+        .padding(4)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.05), lineWidth: 0.5)
         )
     }
 
@@ -133,20 +137,20 @@ struct LimitLensPopover: View {
         return Button {
             selectedTab = tab
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: providerIcon(tab.systemImage, hidesProviderNames: viewModel.hidesProviderNames))
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                 Text(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isSelected ? Color(nsColor: .windowBackgroundColor) : .clear)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isSelected ? Color.primary.opacity(0.08) : .clear)
             )
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
         }

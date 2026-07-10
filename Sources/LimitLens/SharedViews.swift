@@ -58,7 +58,7 @@ struct DailyUsageChart: View {
                             .fill(Color.accentColor.opacity(0.78))
                             .frame(height: barHeight(for: bucket.tokens))
                         Text(dayLabel(bucket.startDate))
-                            .font(.system(size: 8, weight: .medium))
+                            .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
@@ -81,11 +81,11 @@ struct DailyUsageChart: View {
     }
 }
 
-struct UsageMeter: View {
+struct UsageCard: View {
     let label: String
     let percentUsed: Double?
-    let usageText: String
-    let resetText: String
+    let leadingDetail: String?
+    let trailingDetail: String?
     let tint: Color
 
     private var clampedPercent: Double {
@@ -93,14 +93,14 @@ struct UsageMeter: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(label.uppercased())
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(percentText(percentUsed))
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(label)
                     .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                Text(percentText(percentUsed))
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(percentUsed == nil ? .secondary : .primary)
             }
@@ -109,16 +109,31 @@ struct UsageMeter: View {
                 .controlSize(.small)
                 .tint(tint)
 
-            HStack {
-                Text(usageText)
-                Spacer()
-                Text(resetText)
+            if leadingDetail != nil || trailingDetail != nil {
+                HStack(spacing: 6) {
+                    if let leadingDetail {
+                        Text(leadingDetail)
+                    }
+                    Spacer(minLength: 4)
+                    if let trailingDetail {
+                        Text(trailingDetail)
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
         }
-        .padding(.vertical, 1)
+        .padding(9)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(0.035))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
+        )
     }
 }
 
@@ -129,12 +144,12 @@ struct MetricTile: View {
     var captionColor: Color = .secondary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title.uppercased())
-                .font(.system(size: 9, weight: .bold))
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.callout.weight(.semibold))
+                .font(.body.weight(.semibold))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)

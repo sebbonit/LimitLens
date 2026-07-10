@@ -55,21 +55,23 @@ struct DevinSectionView: View {
     }
 
     private func desktopQuotaView(_ quota: DesktopQuotaSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            quotaBar(
-                title: "Daily",
-                usedPercent: quota.dailyUsedPercent,
-                isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
-                resetAt: advancedResetDate(quota.dailyResetAt, interval: 86_400, now: now),
-                tint: .green
-            )
-            quotaBar(
-                title: "Weekly",
-                usedPercent: quota.weeklyUsedPercent,
-                isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
-                resetAt: advancedResetDate(quota.weeklyResetAt, interval: 7 * 86_400, now: now),
-                tint: .orange
-            )
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                quotaBar(
+                    title: "Daily",
+                    usedPercent: quota.dailyUsedPercent,
+                    isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
+                    resetAt: advancedResetDate(quota.dailyResetAt, interval: 86_400, now: now),
+                    tint: .green
+                )
+                quotaBar(
+                    title: "Weekly",
+                    usedPercent: quota.weeklyUsedPercent,
+                    isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
+                    resetAt: advancedResetDate(quota.weeklyResetAt, interval: 7 * 86_400, now: now),
+                    tint: .orange
+                )
+            }
 
             if quota.overageBalanceMicros != nil || quota.cycleEnd != nil {
                 Divider()
@@ -100,11 +102,11 @@ struct DevinSectionView: View {
         tint: Color
     ) -> some View {
         let displayedPercent = isUnavailable ? nil : usedPercent
-        return UsageMeter(
+        return UsageCard(
             label: title,
             percentUsed: displayedPercent.map { Double($0) },
-            usageText: displayedPercent.map { "\($0)% used" } ?? "Usage not reported",
-            resetText: "Resets \(quotaResetText(resetAt, now: now))",
+            leadingDetail: resetAt.map { "Resets \(quotaResetText($0, now: now))" },
+            trailingDetail: nil,
             tint: tint
         )
     }

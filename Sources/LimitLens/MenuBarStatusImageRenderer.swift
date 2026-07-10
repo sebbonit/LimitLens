@@ -101,10 +101,10 @@ enum MenuBarStatusImageRenderer {
         max(countdownTextSize(for: indicator.countdownText).width + pillHorizontalPadding, pillMinWidth)
     }
 
-    private static func countdownTextAttributes() -> [NSAttributedString.Key: Any] {
+    private static func countdownTextAttributes(color: NSColor = NSColor.white.withAlphaComponent(0.92)) -> [NSAttributedString.Key: Any] {
         [
             .font: NSFont.systemFont(ofSize: 8, weight: .bold),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.92)
+            .foregroundColor: color
         ]
     }
 
@@ -162,9 +162,11 @@ enum MenuBarStatusImageRenderer {
             drawRefreshShimmer(in: pillRect, path: path, tint: tint, phase: animationPhase)
         }
 
+        let textColor = secondaryIconTint(for: indicator)?.withAlphaComponent(0.92)
+            ?? NSColor.white.withAlphaComponent(0.92)
         (text as NSString).draw(
             at: NSPoint(x: center.x - textSize.width / 2, y: center.y - textSize.height / 2),
-            withAttributes: countdownTextAttributes()
+            withAttributes: countdownTextAttributes(color: textColor)
         )
 
         let badgeCenter = NSPoint(x: pillRect.maxX, y: pillRect.maxY)
@@ -248,17 +250,17 @@ enum MenuBarStatusImageRenderer {
         switch indicator.state {
         case .loading:
             drawAnimatedFillArc(center: center, radius: radius, indicator: indicator, phase: animationPhase)
-            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames)
+            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, tint: secondaryIconTint(for: indicator))
         case .unavailable:
             drawUnavailable(center: center, radius: radius)
-            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, alpha: 0.42)
+            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, alpha: 0.42, tint: secondaryIconTint(for: indicator))
         case .healthy, .warning, .critical, .stale:
             if isRefreshing {
                 drawAnimatedFillArc(center: center, radius: radius, indicator: indicator, phase: animationPhase)
             } else {
                 drawProgressArc(center: center, radius: radius, indicator: indicator)
             }
-            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames)
+            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, tint: secondaryIconTint(for: indicator))
             if case .stale = indicator.state {
                 drawBadge(center: center, color: .systemOrange, offset: NSPoint(x: 4.5, y: 4.5))
             }
@@ -371,22 +373,24 @@ enum MenuBarStatusImageRenderer {
         for tab: ProviderTab,
         center: NSPoint,
         hidesProviderNames: Bool,
-        alpha: CGFloat = 0.82
+        alpha: CGFloat = 0.82,
+        tint: NSColor? = nil
     ) {
+        let iconColor = tint?.withAlphaComponent(alpha) ?? NSColor.white.withAlphaComponent(alpha)
         if tab == .codex && !hidesProviderNames {
-            drawPromptIcon(center: center, alpha: alpha)
+            drawPromptIcon(center: center, alpha: alpha, color: iconColor)
             return
         }
 
         let symbolName = hidesProviderNames ? "circle.grid.2x2" : tab.systemImage
         guard let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) else {
-            drawFallbackIcon(for: tab, center: center, alpha: alpha)
+            drawFallbackIcon(for: tab, center: center, alpha: alpha, color: iconColor)
             return
         }
 
         let configuration = NSImage.SymbolConfiguration(pointSize: iconPointSize(for: tab), weight: .bold)
         let configured = symbol.withSymbolConfiguration(configuration) ?? symbol
-        let image = tintedImage(configured, color: NSColor.white.withAlphaComponent(alpha))
+        let image = tintedImage(configured, color: iconColor)
         let layout = iconLayout(for: tab, hidesProviderNames: hidesProviderNames)
         let rect = NSRect(
             x: center.x - layout.size.width / 2 + layout.offset.x,
@@ -397,17 +401,17 @@ enum MenuBarStatusImageRenderer {
         image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
     }
 
-    private static func drawPromptIcon(center: NSPoint, alpha: CGFloat) {
+    private static func drawPromptIcon(center: NSPoint, alpha: CGFloat, color: NSColor) {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 6.2, weight: .bold),
-            .foregroundColor: NSColor.white.withAlphaComponent(alpha)
+            .foregroundColor: color
         ]
         let attributed = NSAttributedString(string: ">_", attributes: attributes)
         let textSize = attributed.size()
         attributed.draw(at: NSPoint(x: center.x - textSize.width / 2, y: center.y - textSize.height / 2))
     }
 
-    private static func drawFallbackIcon(for tab: ProviderTab, center: NSPoint, alpha: CGFloat) {
+    private static func drawFallbackIcon(for tab: ProviderTab, center: NSPoint, alpha: CGFloat, color: NSColor) {
         let text: String
         switch tab {
         case .codex:
@@ -424,7 +428,7 @@ enum MenuBarStatusImageRenderer {
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 6.5, weight: .bold),
-            .foregroundColor: NSColor.white.withAlphaComponent(alpha)
+            .foregroundColor: color
         ]
         let attributed = NSAttributedString(string: text, attributes: attributes)
         let textSize = attributed.size()
@@ -494,6 +498,18 @@ enum MenuBarStatusImageRenderer {
             return (NSColor.systemIndigo, NSColor.systemCyan)
         case .overview, .settings:
             return (NSColor.systemGray, NSColor.systemBlue)
+        }
+    }
+
+    private static func secondaryIconTint(for indicator: MenuBarProviderIndicator) -> NSColor? {
+        guard let percent = indicator.secondaryPercentUsed else { return nil }
+        let clamped = max(0, min(100, percent))
+        if clamped >= 70 {
+            return .systemRed
+        } else if clamped >= 50 {
+            return .systemYellow
+        } else {
+            return .systemGreen
         }
     }
 

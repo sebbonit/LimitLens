@@ -159,6 +159,7 @@ extension UsageViewModel {
                 detail: loadStateDetail(state, unavailable: "Codex unavailable"),
                 subdetail: "Usage not loaded",
                 secondaryDetail: nil,
+                secondaryPercentUsed: nil,
                 percentUsed: nil,
                 resetAt: nil,
                 severity: severity(for: state)
@@ -172,12 +173,14 @@ extension UsageViewModel {
         let selected = closestActiveLimit(candidates)
         let resetAt = selected?.resetAt
         let percent = selected.map { Double($0.percent) }
+        let next = nextLimit(after: selected, in: candidates)
 
         return ProviderUsageSummary(
             tab: .codex,
             detail: selected.map { "\($0.title) \($0.percent)% used" } ?? "Usage unavailable",
             subdetail: resetAt.map { "Resets \(UsageFormatting.timeRemainingText(date: $0, now: now))" } ?? "Reset unknown",
-            secondaryDetail: nextLimit(after: selected, in: candidates).map(limitDetail),
+            secondaryDetail: next.map(limitDetail),
+            secondaryPercentUsed: next.map { Double($0.percent) },
             percentUsed: percent,
             resetAt: resetAt,
             severity: UsageSeverity.from(percentUsed: percent)
@@ -191,6 +194,7 @@ extension UsageViewModel {
                 detail: loadStateDetail(cursorState, unavailable: "Cursor unavailable"),
                 subdetail: "Usage not loaded",
                 secondaryDetail: nil,
+                secondaryPercentUsed: nil,
                 percentUsed: nil,
                 resetAt: nil,
                 severity: severity(for: cursorState)
@@ -203,6 +207,7 @@ extension UsageViewModel {
             detail: "\(Int(percent.rounded()))% used",
             subdetail: cursorSnapshot.billingCycleEnd.map { "Resets \(UsageFormatting.timeRemainingText(date: $0, now: now))" } ?? "Reset unknown",
             secondaryDetail: nil,
+            secondaryPercentUsed: nil,
             percentUsed: percent,
             resetAt: cursorSnapshot.billingCycleEnd,
             severity: UsageSeverity.from(percentUsed: percent)
@@ -216,6 +221,7 @@ extension UsageViewModel {
                 detail: loadStateDetail(desktopQuotaState, unavailable: "Devin unavailable"),
                 subdetail: "Quota not loaded",
                 secondaryDetail: nil,
+                secondaryPercentUsed: nil,
                 percentUsed: nil,
                 resetAt: nil,
                 severity: severity(for: desktopQuotaState)
@@ -237,12 +243,14 @@ extension UsageViewModel {
         let selected = closestActiveLimit(candidates)
         let percent = selected.map { Double($0.percent) }
         let resetAt = selected?.resetAt
+        let next = nextLimit(after: selected, in: candidates)
 
         return ProviderUsageSummary(
             tab: .devin,
             detail: selected.map { "\($0.title) \($0.percent)% used" } ?? "Usage not reported",
             subdetail: resetAt.map { "Resets \(UsageFormatting.timeRemainingText(date: $0, now: now))" } ?? "Reset unknown",
-            secondaryDetail: nextLimit(after: selected, in: candidates).map(limitDetail),
+            secondaryDetail: next.map(limitDetail),
+            secondaryPercentUsed: next.map { Double($0.percent) },
             percentUsed: percent,
             resetAt: resetAt,
             severity: UsageSeverity.from(percentUsed: percent)
@@ -256,6 +264,7 @@ extension UsageViewModel {
                 detail: loadStateDetail(openCodeGoState, unavailable: "OpenCode Go unavailable"),
                 subdetail: "Usage not loaded",
                 secondaryDetail: nil,
+                secondaryPercentUsed: nil,
                 percentUsed: nil,
                 resetAt: nil,
                 severity: severity(for: openCodeGoState)
@@ -277,12 +286,14 @@ extension UsageViewModel {
         }
         let selected = closestActiveLimit(candidates)
         let percent = selected.map { Double($0.percent) }
+        let next = nextLimit(after: selected, in: candidates)
 
         return ProviderUsageSummary(
             tab: .openCodeGo,
             detail: selected.map { "\($0.title) \($0.percent)% used" } ?? "Usage not reported",
             subdetail: selected?.resetAt.map { "Resets \(UsageFormatting.timeRemainingText(date: $0, now: now))" } ?? "Reset unknown",
-            secondaryDetail: nextLimit(after: selected, in: candidates).map(limitDetail),
+            secondaryDetail: next.map(limitDetail),
+            secondaryPercentUsed: next.map { Double($0.percent) },
             percentUsed: percent,
             resetAt: selected?.resetAt,
             severity: UsageSeverity.from(percentUsed: percent)

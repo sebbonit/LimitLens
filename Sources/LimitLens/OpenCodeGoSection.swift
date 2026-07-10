@@ -52,19 +52,25 @@ struct OpenCodeGoSectionView: View {
     }
 
     private func openCodeGoUsageView(_ snapshot: OpenCodeGoUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            openCodeGoUsageBar(title: "Rolling", window: snapshot.rolling, tint: .mint)
-            openCodeGoUsageBar(title: "Weekly", window: snapshot.weekly, tint: .orange)
-            openCodeGoUsageBar(title: "Monthly", window: snapshot.monthly, tint: .blue)
+        HStack(alignment: .top, spacing: 8) {
+            if let rolling = snapshot.rolling {
+                openCodeGoUsageBar(title: "Rolling", window: rolling, tint: .mint)
+            }
+            if let weekly = snapshot.weekly {
+                openCodeGoUsageBar(title: "Weekly", window: weekly, tint: .orange)
+            }
+            if let monthly = snapshot.monthly {
+                openCodeGoUsageBar(title: "Monthly", window: monthly, tint: .blue)
+            }
         }
     }
 
-    private func openCodeGoUsageBar(title: String, window: OpenCodeGoUsageWindow?, tint: Color) -> some View {
-        UsageMeter(
+    private func openCodeGoUsageBar(title: String, window: OpenCodeGoUsageWindow, tint: Color) -> some View {
+        UsageCard(
             label: title,
-            percentUsed: window?.usedPercent,
-            usageText: window.map { "\(Int($0.usedPercent.rounded()))% used" } ?? "Usage not reported",
-            resetText: "Resets \(quotaResetText(window?.resetAt, now: now))",
+            percentUsed: window.usedPercent,
+            leadingDetail: window.resetAt.map { "Resets \(quotaResetText($0, now: now))" },
+            trailingDetail: nil,
             tint: tint
         )
     }
