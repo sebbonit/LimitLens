@@ -444,6 +444,18 @@ struct LimitLensCoreTests {
         #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(86_400), now: now) == "1d")
     }
 
+    @Test("Compact countdown rounds to nearest minute")
+    func compactCountdownRoundsToNearestMinute() {
+        let now = Date(timeIntervalSince1970: 1_782_900_000)
+
+        // 5h minus 10s should round up to 5h, not truncate to 4h59m
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(5 * 3_600 - 10), now: now) == "5h")
+        // 5h minus 31s should round down to 4h59m
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(5 * 3_600 - 31), now: now) == "4h59m")
+        // 90m plus 29s should still round to 1h30m
+        #expect(UsageFormatting.compactCountdownText(date: now.addingTimeInterval(90 * 60 + 29), now: now) == "1h30m")
+    }
+
     @Test("Formats relative day text")
     func formatsRelativeDayText() {
         var calendar = Calendar(identifier: .gregorian)

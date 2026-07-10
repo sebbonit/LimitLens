@@ -40,7 +40,7 @@ public enum UsageFormatting {
         let interval = date.timeIntervalSince(now)
         guard interval > 0 else { return "now" }
 
-        let totalMinutes = Int(interval / 60)
+        let totalMinutes = Int((interval + 30) / 60)
         let days = totalMinutes / (60 * 24)
         let hours = (totalMinutes % (60 * 24)) / 60
         let minutes = totalMinutes % 60
@@ -59,7 +59,7 @@ public enum UsageFormatting {
         let interval = date.timeIntervalSince(now)
         guard interval > 0 else { return "now" }
 
-        let totalMinutes = Int(interval / 60)
+        let totalMinutes = Int((interval + 30) / 60)
         let days = totalMinutes / (60 * 24)
         let hours = (totalMinutes % (60 * 24)) / 60
         let minutes = totalMinutes % 60

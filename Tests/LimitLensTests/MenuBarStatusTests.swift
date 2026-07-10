@@ -203,7 +203,6 @@ struct MenuBarStatusTests {
         )
 
         await viewModel.refresh()
-        viewModel.setNowForTesting(viewModel.now.addingTimeInterval(-30))
         viewModel.updateConfiguration { $0.privacy.menuBarDisplay = .countdowns }
         let status = viewModel.menuBarStatus
 
