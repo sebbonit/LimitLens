@@ -10,6 +10,7 @@ struct OverviewSectionView: View {
     let onSelectTab: (ProviderTab) -> Void
     var paceProjections: [ProviderTab: PaceProjection] = [:]
     var collectingPaceData: Set<ProviderTab> = []
+    var exhaustionSummaries: [ExhaustionSpeedSummary] = []
 
     var body: some View {
         SectionBlock {
@@ -43,6 +44,10 @@ struct OverviewSectionView: View {
                         }
                     }
                 }
+
+                Divider()
+
+                exhaustionSpeedSection
             }
         }
     }
@@ -124,6 +129,61 @@ struct OverviewSectionView: View {
             return .orange
         }
         return collectingPaceData.contains(summary.tab) ? Color.secondary.opacity(0.65) : .secondary
+    }
+
+    private var exhaustionSpeedSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Exhaustion speed")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if exhaustionSummaries.isEmpty {
+                StatusLine(icon: "clock", color: .secondary, text: "No exhausted cycles yet")
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(exhaustionSummaries.enumerated()), id: \.element.id) { index, entry in
+                        exhaustionSpeedRow(entry)
+                        if index < exhaustionSummaries.count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func exhaustionSpeedRow(_ entry: ExhaustionSpeedSummary) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: providerIcon(entry.tab.systemImage, hidesProviderNames: hidesProviderNames))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 18, height: 18)
+                .background(Circle().fill(Color.secondary.opacity(0.10)))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(providerName(entry.tab.displayName, privateName: entry.tab.privateName, hidesProviderNames: hidesProviderNames))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(providerSafeMessage(entry.quotaLabel, hidesProviderNames: hidesProviderNames))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(providerSafeMessage(entry.averageText, hidesProviderNames: hidesProviderNames))
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                Text("\(entry.cycleCount) cycle\(entry.cycleCount == 1 ? "" : "s")")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private var billingExpirySection: some View {

@@ -56,7 +56,8 @@ struct LimitLensPopover: View {
                 hidesProviderNames: viewModel.hidesProviderNames,
                 onSelectTab: { selectedTab = $0 },
                 paceProjections: viewModel.paceProjections,
-                collectingPaceData: viewModel.collectingPaceData
+                collectingPaceData: viewModel.collectingPaceData,
+                exhaustionSummaries: viewModel.exhaustionSummaries
             )
         case .codex:
             if let snapshot = viewModel.snapshot {

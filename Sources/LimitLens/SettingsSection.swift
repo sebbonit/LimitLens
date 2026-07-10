@@ -12,6 +12,8 @@ struct SettingsSectionView: View {
     @State private var didLoadConfig = false
     @State private var expandedProvider: ProviderTab?
     @State private var collapsedSections: Set<String> = ["diagnostics"]
+    @State private var showClearExhaustionConfirmation = false
+    @State private var didClearExhaustionHistory = false
 
     var body: some View {
         ScrollView {
@@ -497,19 +499,83 @@ struct SettingsSectionView: View {
     // MARK: - Reset
 
     private var resetSection: some View {
-        HStack {
-            Button("Reset all settings") {
-                viewModel.resetConfigurationToDefaults()
-                selectedTab = .overview
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button("Reset all settings") {
+                    viewModel.resetConfigurationToDefaults()
+                    selectedTab = .overview
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                Spacer()
+                Text("Saved automatically")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            Spacer()
-            Text("Saved automatically")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+
+            if showClearExhaustionConfirmation {
+                clearExhaustionConfirmationView
+            } else {
+                HStack {
+                    Button("Clear exhaustion history", role: .destructive) {
+                        didClearExhaustionHistory = false
+                        showClearExhaustionConfirmation = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    Spacer()
+                    if didClearExhaustionHistory {
+                        Text("Cleared")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                    } else if viewModel.exhaustionSummaries.isEmpty {
+                        Text("No history")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    } else {
+                        Text("\(viewModel.exhaustionSummaries.count) provider\(viewModel.exhaustionSummaries.count == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .padding(.top, 2)
+    }
+
+    private var clearExhaustionConfirmationView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Clear exhaustion history?")
+                .font(.caption.weight(.semibold))
+            Text("Removes all recorded quota exhaustion cycles. Configuration and pace projections are not affected.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button("Clear history", role: .destructive) {
+                    viewModel.clearExhaustionHistory()
+                    showClearExhaustionConfirmation = false
+                    didClearExhaustionHistory = true
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                Button("Cancel") {
+                    showClearExhaustionConfirmation = false
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                Spacer()
+            }
+        }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.red.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color.red.opacity(0.15), lineWidth: 0.5)
+        )
     }
 
     // MARK: - First launch

@@ -38,6 +38,7 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var lastErrors: [ProviderTab: String] = [:]
     @Published private(set) var diagnosticTestResults: [ProviderTab: DiagnosticTestResult] = [:]
     @Published private(set) var autoSwitchDisplay: MenuBarDisplay = .logos
+    @Published var exhaustionSummaries: [ExhaustionSpeedSummary] = []
 
     private var paceSampleHistory: [ProviderTab: [PaceSample]] = [:]
 
@@ -50,6 +51,7 @@ final class UsageViewModel: ObservableObject {
     private let cursorService: CursorUsageFetching?
     private let desktopQuotaService: DesktopQuotaFetching?
     private let openCodeGoService: OpenCodeGoUsageFetching?
+    internal let historyStore: QuotaExhaustionHistoryStoring
     private var didStartLoops = false
     private var refreshingProviders: [ProviderTab: UUID] = [:]
     private let notificationCoordinator: NotificationCoordinator
@@ -70,7 +72,8 @@ final class UsageViewModel: ObservableObject {
             cursorService: nil,
             desktopQuotaService: nil,
             openCodeGoService: nil,
-            notificationCoordinator: NotificationCoordinator()
+            notificationCoordinator: NotificationCoordinator(),
+            historyStore: QuotaExhaustionHistoryStore()
         )
     }
 
@@ -80,7 +83,8 @@ final class UsageViewModel: ObservableObject {
         cursorService: CursorUsageFetching,
         desktopQuotaService: DesktopQuotaFetching,
         openCodeGoService: OpenCodeGoUsageFetching,
-        notificationCoordinator: NotificationCoordinator = NotificationCoordinator()
+        notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
+        historyStore: QuotaExhaustionHistoryStoring = QuotaExhaustionHistoryStore()
     ) {
         self.configurationStore = nil
         self.configuration = configuration
@@ -89,6 +93,8 @@ final class UsageViewModel: ObservableObject {
         self.desktopQuotaService = desktopQuotaService
         self.openCodeGoService = openCodeGoService
         self.notificationCoordinator = notificationCoordinator
+        self.historyStore = historyStore
+        updateExhaustionSummaries()
     }
 
     private init(
@@ -98,7 +104,8 @@ final class UsageViewModel: ObservableObject {
         cursorService: CursorUsageFetching?,
         desktopQuotaService: DesktopQuotaFetching?,
         openCodeGoService: OpenCodeGoUsageFetching?,
-        notificationCoordinator: NotificationCoordinator
+        notificationCoordinator: NotificationCoordinator,
+        historyStore: QuotaExhaustionHistoryStoring
     ) {
         self.configurationStore = configurationStore
         self.configuration = configuration
@@ -107,6 +114,8 @@ final class UsageViewModel: ObservableObject {
         self.desktopQuotaService = desktopQuotaService
         self.openCodeGoService = openCodeGoService
         self.notificationCoordinator = notificationCoordinator
+        self.historyStore = historyStore
+        updateExhaustionSummaries()
     }
 
     func start() {
@@ -362,6 +371,7 @@ final class UsageViewModel: ObservableObject {
             state = .loaded
             lastFetchAt[.codex] = Date()
             updatePaceProjection(for: .codex)
+            recordExhaustionIfNeeded(for: .codex)
             lastErrors[.codex] = nil
         } catch is CancellationError {
             return
@@ -388,6 +398,7 @@ final class UsageViewModel: ObservableObject {
             cursorState = .loaded
             lastFetchAt[.cursor] = Date()
             updatePaceProjection(for: .cursor)
+            recordExhaustionIfNeeded(for: .cursor)
             lastErrors[.cursor] = nil
         } catch is CancellationError {
             return
@@ -415,6 +426,7 @@ final class UsageViewModel: ObservableObject {
             if !snapshots.isEmpty {
                 lastFetchAt[.devin] = Date()
                 updatePaceProjection(for: .devin)
+                recordExhaustionIfNeeded(for: .devin)
                 lastErrors[.devin] = nil
             } else {
                 lastErrors[.devin] = "Devin quota cache unavailable."
@@ -440,6 +452,7 @@ final class UsageViewModel: ObservableObject {
             openCodeGoState = .loaded
             lastFetchAt[.openCodeGo] = Date()
             updatePaceProjection(for: .openCodeGo)
+            recordExhaustionIfNeeded(for: .openCodeGo)
             lastErrors[.openCodeGo] = nil
         } catch is CancellationError {
             return
@@ -559,6 +572,7 @@ final class UsageViewModel: ObservableObject {
             collectingPaceData.remove(.openCodeGo)
             lastErrors[.openCodeGo] = nil
         }
+        updateExhaustionSummaries()
     }
 
     private func updatePaceProjection(for tab: ProviderTab) {

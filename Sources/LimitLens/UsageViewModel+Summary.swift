@@ -7,6 +7,20 @@ private struct LimitCandidate {
     let percent: Int
     let resetAt: Date?
     let durationMinutes: Int64
+
+    var windowDurationSeconds: TimeInterval? {
+        durationMinutes == Int64.max ? nil : TimeInterval(durationMinutes) * 60
+    }
+
+    /// Derives the cycle start by subtracting the window duration from the
+    /// reset time. Returns nil if either value is unavailable.
+    var cycleStart: Date? {
+        guard let resetAt, let windowDurationSeconds else { return nil }
+        return ExhaustionSpeedCalculator.cycleStart(
+            resetAt: resetAt,
+            windowDurationSeconds: windowDurationSeconds
+        )
+    }
 }
 
 extension UsageViewModel {
@@ -184,7 +198,11 @@ extension UsageViewModel {
             secondaryPercentUsed: next.map { Double($0.percent) },
             percentUsed: percent,
             resetAt: resetAt,
-            severity: UsageSeverity.from(percentUsed: percent)
+            severity: UsageSeverity.from(percentUsed: percent),
+            quotaKind: selected.map(\.title),
+            quotaLabel: selected.map(\.title),
+            windowDurationSeconds: selected?.windowDurationSeconds,
+            cycleStart: selected?.cycleStart
         )
     }
 
@@ -203,6 +221,10 @@ extension UsageViewModel {
         }
 
         let percent = cursorSnapshot.usedPercent
+        let cycleStartInfo = ExhaustionSpeedCalculator.cursorCycleStart(
+            billingCycleStart: cursorSnapshot.billingCycleStart,
+            billingCycleEnd: cursorSnapshot.billingCycleEnd
+        )
         return ProviderUsageSummary(
             tab: .cursor,
             detail: "\(Int(percent.rounded()))% used",
@@ -211,7 +233,12 @@ extension UsageViewModel {
             secondaryPercentUsed: nil,
             percentUsed: percent,
             resetAt: cursorSnapshot.billingCycleEnd,
-            severity: UsageSeverity.from(percentUsed: percent)
+            severity: UsageSeverity.from(percentUsed: percent),
+            quotaKind: "Billing cycle",
+            quotaLabel: "Billing cycle",
+            windowDurationSeconds: nil,
+            cycleStart: cycleStartInfo?.start,
+            cycleStartEstimated: cycleStartInfo?.estimated ?? false
         )
     }
 
@@ -254,7 +281,11 @@ extension UsageViewModel {
             secondaryPercentUsed: next.map { Double($0.percent) },
             percentUsed: percent,
             resetAt: resetAt,
-            severity: UsageSeverity.from(percentUsed: percent)
+            severity: UsageSeverity.from(percentUsed: percent),
+            quotaKind: selected.map(\.title),
+            quotaLabel: selected.map(\.title),
+            windowDurationSeconds: selected?.windowDurationSeconds,
+            cycleStart: selected?.cycleStart
         )
     }
 
@@ -297,7 +328,11 @@ extension UsageViewModel {
             secondaryPercentUsed: next.map { Double($0.percent) },
             percentUsed: percent,
             resetAt: selected?.resetAt,
-            severity: UsageSeverity.from(percentUsed: percent)
+            severity: UsageSeverity.from(percentUsed: percent),
+            quotaKind: selected.map(\.title),
+            quotaLabel: selected.map(\.title),
+            windowDurationSeconds: selected?.windowDurationSeconds,
+            cycleStart: selected?.cycleStart
         )
     }
 
