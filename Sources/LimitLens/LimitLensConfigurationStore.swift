@@ -7,9 +7,19 @@ final class LimitLensConfigurationStore: ObservableObject {
 
     let url: URL
 
-    init(url: URL = .defaultLimitLensConfigurationURL) {
+    init(
+        url: URL = .defaultLimitLensConfigurationURL,
+        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) {
         self.url = url
-        self.configuration = Self.load(from: url)
+        var configuration = Self.load(from: url)
+        let didMigrateCodexPath = configuration.migrateLegacyCodexExecutablePath(
+            isExecutable: isExecutable
+        )
+        self.configuration = configuration
+        if didMigrateCodexPath {
+            save()
+        }
     }
 
     func save() {

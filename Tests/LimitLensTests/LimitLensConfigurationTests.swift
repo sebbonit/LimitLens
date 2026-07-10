@@ -33,6 +33,43 @@ struct LimitLensConfigurationTests {
         #expect(detected.setup.showsFirstLaunchSetup == true)
     }
 
+    @Test("Legacy Codex app path migrates to the ChatGPT app bundle")
+    func legacyCodexPathMigratesToChatGPTBundle() throws {
+        let url = temporaryConfigURL()
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        var configuration = LimitLensConfiguration.defaults
+        configuration.providers.codex.executablePath = LimitLensConfiguration.legacyCodexExecutablePaths[0]
+        try JSONEncoder().encode(configuration).write(to: url)
+
+        let store = LimitLensConfigurationStore(
+            url: url,
+            isExecutable: { $0 == LimitLensConfiguration.currentCodexExecutablePath }
+        )
+
+        #expect(store.configuration.providers.codex.executablePath == LimitLensConfiguration.currentCodexExecutablePath)
+        let persisted = try JSONDecoder().decode(
+            LimitLensConfiguration.self,
+            from: Data(contentsOf: url)
+        )
+        #expect(persisted.providers.codex.executablePath == LimitLensConfiguration.currentCodexExecutablePath)
+    }
+
+    @Test("Custom Codex paths are not replaced automatically")
+    func customCodexPathIsPreserved() {
+        var configuration = LimitLensConfiguration.defaults
+        configuration.providers.codex.executablePath = "/custom/codex"
+
+        let migrated = configuration.migrateLegacyCodexExecutablePath(
+            isExecutable: { $0 == LimitLensConfiguration.currentCodexExecutablePath }
+        )
+
+        #expect(migrated == false)
+        #expect(configuration.providers.codex.executablePath == "/custom/codex")
+    }
+
     @Test("Saves and reloads configuration")
     func savesAndReloadsConfiguration() {
         let url = temporaryConfigURL()

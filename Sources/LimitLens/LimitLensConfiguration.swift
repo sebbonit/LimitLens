@@ -7,6 +7,23 @@ enum MenuBarDisplay: String, Codable, Equatable, CaseIterable {
 }
 
 struct LimitLensConfiguration: Codable, Equatable {
+    static let currentCodexExecutablePath = "/Applications/ChatGPT.app/Contents/Resources/codex"
+    static let legacyCodexExecutablePaths = [
+        "/Applications/Codex.app/Contents/Resources/codex",
+        "\(NSHomeDirectory())/Applications/Codex.app/Contents/Resources/codex"
+    ]
+
+    static var codexExecutableCandidates: [String] {
+        [
+            currentCodexExecutablePath,
+            "\(NSHomeDirectory())/Applications/ChatGPT.app/Contents/Resources/codex",
+            "/Applications/Codex.app/Contents/Resources/codex",
+            "\(NSHomeDirectory())/Applications/Codex.app/Contents/Resources/codex",
+            "/opt/homebrew/bin/codex",
+            "/usr/local/bin/codex"
+        ]
+    }
+
     var providers: ProviderConfiguration
     var privacy: PrivacyConfiguration
     var setup: SetupConfiguration
@@ -31,7 +48,7 @@ struct LimitLensConfiguration: Codable, Equatable {
         providers: ProviderConfiguration(
             codex: CodexProviderConfiguration(
                 isEnabled: true,
-                executablePath: "/Applications/Codex.app/Contents/Resources/codex"
+                executablePath: currentCodexExecutablePath
             ),
             cursor: CursorProviderConfiguration(
                 isEnabled: true,
@@ -72,10 +89,7 @@ struct LimitLensConfiguration: Codable, Equatable {
     ) -> LimitLensConfiguration {
         let defaults = LimitLensConfiguration.defaults
         let codexPath = firstMatchingPath(
-            [
-                defaults.providers.codex.executablePath,
-                "\(NSHomeDirectory())/Applications/Codex.app/Contents/Resources/codex"
-            ],
+            codexExecutableCandidates,
             matches: isExecutable
         ) ?? defaults.providers.codex.executablePath
         let cursorPath = firstMatchingPath(
@@ -116,6 +130,20 @@ struct LimitLensConfiguration: Codable, Equatable {
 
     private static func firstMatchingPath(_ paths: [String], matches: (String) -> Bool) -> String? {
         paths.first(where: matches)
+    }
+
+    mutating func migrateLegacyCodexExecutablePath(
+        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) -> Bool {
+        let configuredPath = providers.codex.executablePath
+        guard Self.legacyCodexExecutablePaths.contains(configuredPath),
+              !isExecutable(configuredPath),
+              let replacement = Self.codexExecutableCandidates.first(where: isExecutable) else {
+            return false
+        }
+
+        providers.codex.executablePath = replacement
+        return true
     }
 }
 
