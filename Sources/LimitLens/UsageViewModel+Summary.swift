@@ -27,7 +27,8 @@ extension UsageViewModel {
     }
 
     var menuBarDisplay: MenuBarDisplay {
-        configuration.privacy.menuBarDisplay
+        let configured = configuration.privacy.menuBarDisplay
+        return configured == .auto ? autoSwitchDisplay : configured
     }
 
     var openCodeGoDashboardURL: URL? {

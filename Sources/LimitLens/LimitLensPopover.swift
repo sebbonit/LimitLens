@@ -292,6 +292,7 @@ struct LimitLensPopover: View {
         switch menuBarDisplay {
         case .logos: return "circle.grid.2x2"
         case .countdowns: return "timer"
+        case .auto: return "arrow.triangle.2.circlepath"
         case .hidden: return "eye.slash"
         }
     }
@@ -300,6 +301,7 @@ struct LimitLensPopover: View {
         switch menuBarDisplay {
         case .logos: return "Menu bar: logos"
         case .countdowns: return "Menu bar: countdowns"
+        case .auto: return "Menu bar: auto-switch"
         case .hidden: return "Menu bar: hidden"
         }
     }
