@@ -62,6 +62,16 @@ public enum UsagePaceProjection {
         let percentPerMinute = slope(samples: trimmed)
         let currentPercent = newest.percentUsed
 
+        // Limit is already exhausted — no projection needed.
+        if currentPercent >= 100 {
+            return PaceProjection(
+                summaryText: "Limit exhausted",
+                willExhaustBeforeReset: true,
+                projectedExhaustionDate: now,
+                projectedPercentAtReset: 100
+            )
+        }
+
         // Usage is stable or declining (e.g. after a reset window rolls over)
         if percentPerMinute <= 0.01 {
             return PaceProjection(

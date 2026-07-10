@@ -38,6 +38,20 @@ struct UsagePaceProjectionTests {
         #expect(result!.projectedPercentAtReset == 100)
     }
 
+    @Test("Reports limit exhausted when current percent is already 100")
+    func reportsExhaustedWhenAt100Percent() {
+        let now = Date()
+        let samples = [
+            PaceSample(percentUsed: 90, timestamp: now.addingTimeInterval(-600)),
+            PaceSample(percentUsed: 100, timestamp: now)
+        ]
+        let result = UsagePaceProjection.project(samples: samples, now: now, resetAt: now.addingTimeInterval(3600))
+        #expect(result != nil)
+        #expect(result!.summaryText == "Limit exhausted")
+        #expect(result!.willExhaustBeforeReset == true)
+        #expect(result!.projectedPercentAtReset == 100)
+    }
+
     @Test("Projects spare at reset when pace is low")
     func projectsSpareAtReset() {
         let now = Date()
