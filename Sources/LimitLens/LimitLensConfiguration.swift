@@ -3,6 +3,7 @@ import Foundation
 enum MenuBarDisplay: String, Codable, Equatable, CaseIterable {
     case logos
     case countdowns
+    case auto
     case hidden
 }
 
@@ -63,7 +64,7 @@ struct LimitLensConfiguration: Codable, Equatable {
                 configPath: "\(NSHomeDirectory())/.config/opencode/opencode-quota/opencode-go.json"
             )
         ),
-        privacy: PrivacyConfiguration(menuBarDisplay: .logos)
+        privacy: PrivacyConfiguration(menuBarDisplay: .logos, secondaryLimitTintingEnabled: true, autoSwitchIntervalSeconds: 10)
     )
 
     enum CodingKeys: String, CodingKey {
@@ -483,19 +484,31 @@ enum OpenCodeGoDashboardConfigFile {
 }
 
 struct PrivacyConfiguration: Codable, Equatable {
+    static let validAutoSwitchIntervals: [Int] = [5, 10, 15, 30]
+
     var menuBarDisplay: MenuBarDisplay
+    var secondaryLimitTintingEnabled: Bool
+    var autoSwitchIntervalSeconds: Int
 
     var hidesProviderNames: Bool {
         menuBarDisplay == .hidden
     }
 
-    init(menuBarDisplay: MenuBarDisplay = .logos) {
+    init(
+        menuBarDisplay: MenuBarDisplay = .logos,
+        secondaryLimitTintingEnabled: Bool = true,
+        autoSwitchIntervalSeconds: Int = 10
+    ) {
         self.menuBarDisplay = menuBarDisplay
+        self.secondaryLimitTintingEnabled = secondaryLimitTintingEnabled
+        self.autoSwitchIntervalSeconds = Self.sanitizedAutoSwitchInterval(autoSwitchIntervalSeconds)
     }
 
     enum CodingKeys: String, CodingKey {
         case menuBarDisplay
         case hidesProviderNames
+        case secondaryLimitTintingEnabled
+        case autoSwitchIntervalSeconds
     }
 
     init(from decoder: Decoder) throws {
@@ -507,11 +520,23 @@ struct PrivacyConfiguration: Codable, Equatable {
         } else {
             self.menuBarDisplay = .logos
         }
+        self.secondaryLimitTintingEnabled = try container.decodeIfPresent(Bool.self, forKey: .secondaryLimitTintingEnabled) ?? true
+        let interval = try container.decodeIfPresent(Int.self, forKey: .autoSwitchIntervalSeconds) ?? 10
+        self.autoSwitchIntervalSeconds = Self.sanitizedAutoSwitchInterval(interval)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(menuBarDisplay, forKey: .menuBarDisplay)
+        try container.encode(secondaryLimitTintingEnabled, forKey: .secondaryLimitTintingEnabled)
+        try container.encode(autoSwitchIntervalSeconds, forKey: .autoSwitchIntervalSeconds)
+    }
+
+    static func sanitizedAutoSwitchInterval(_ seconds: Int) -> Int {
+        guard !validAutoSwitchIntervals.isEmpty else { return 10 }
+        if validAutoSwitchIntervals.contains(seconds) { return seconds }
+        let clamped = max(5, min(60, seconds))
+        return validAutoSwitchIntervals.min(by: { abs($0 - clamped) < abs($1 - clamped) }) ?? 10
     }
 }
 

@@ -92,6 +92,33 @@ struct MenuBarStatusTests {
         #expect(cursor?.secondaryPercentUsed == nil)
     }
 
+    @Test("Tinting flag flows through to menu bar snapshot")
+    func tintingFlagFlowsToSnapshot() async {
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 30, secondaryPercent: 75)))
+        )
+
+        await viewModel.refresh()
+        #expect(viewModel.menuBarStatus.secondaryLimitTintingEnabled == true)
+
+        viewModel.updateConfiguration { $0.privacy.secondaryLimitTintingEnabled = false }
+        #expect(viewModel.menuBarStatus.secondaryLimitTintingEnabled == false)
+    }
+
+    @Test("Auto display mode resolves to logos or countdowns")
+    func autoDisplayModeResolvesToLogosOrCountdowns() async {
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 30)))
+        )
+
+        await viewModel.refresh()
+        viewModel.updateConfiguration { $0.privacy.menuBarDisplay = .auto }
+
+        let resolved = viewModel.menuBarStatus.menuBarDisplay
+        #expect(resolved == .logos || resolved == .countdowns)
+        #expect(resolved != .auto)
+    }
+
     @Test("Warning provider drives title when no provider is critical")
     func warningProviderDrivesTitle() async {
         let viewModel = makeViewModel(
@@ -176,7 +203,7 @@ struct MenuBarStatusTests {
         )
 
         await viewModel.refresh()
-        viewModel.now = viewModel.now.addingTimeInterval(-30)
+        viewModel.setNowForTesting(viewModel.now.addingTimeInterval(-30))
         viewModel.updateConfiguration { $0.privacy.menuBarDisplay = .countdowns }
         let status = viewModel.menuBarStatus
 

@@ -24,12 +24,20 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var openCodeGoState: LoadState = .idle
     @Published private(set) var isRefreshing = false
     @Published private(set) var configuration: LimitLensConfiguration
-    @Published var now = Date()
+    @Published private(set) var now = Date()
+    private var lastClockMinute: Int = -1
+
+    /// Test hook to override the current time.
+    func setNowForTesting(_ date: Date) {
+        now = date
+        lastClockMinute = Calendar.current.component(.minute, from: date)
+    }
     @Published private(set) var lastFetchAt: [ProviderTab: Date] = [:]
     @Published private(set) var paceProjections: [ProviderTab: PaceProjection] = [:]
     @Published private(set) var collectingPaceData: Set<ProviderTab> = []
     @Published private(set) var lastErrors: [ProviderTab: String] = [:]
     @Published private(set) var diagnosticTestResults: [ProviderTab: DiagnosticTestResult] = [:]
+    @Published private(set) var autoSwitchDisplay: MenuBarDisplay = .logos
 
     private var paceSampleHistory: [ProviderTab: [PaceSample]] = [:]
 
@@ -48,6 +56,7 @@ final class UsageViewModel: ObservableObject {
     private var refreshTask: Task<Void, Never>?
     private var refreshLoopTask: Task<Void, Never>?
     private var clockLoopTask: Task<Void, Never>?
+    private var autoSwitchLoopTask: Task<Void, Never>?
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
 
@@ -104,6 +113,7 @@ final class UsageViewModel: ObservableObject {
 
         refreshLoopTask = Task { await refreshLoop() }
         clockLoopTask = Task { await clockLoop() }
+        autoSwitchLoopTask = Task { await autoSwitchLoop() }
         observeWorkspacePowerState()
     }
 
@@ -624,8 +634,25 @@ final class UsageViewModel: ObservableObject {
 
     private func clockLoop() async {
         while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(60))
-            now = Date()
+            let current = Date()
+            let minute = Calendar.current.component(.minute, from: current)
+            if minute != lastClockMinute {
+                lastClockMinute = minute
+                now = current
+            }
+            try? await Task.sleep(for: .seconds(1))
+        }
+    }
+
+    private func autoSwitchLoop() async {
+        while !Task.isCancelled {
+            guard configuration.privacy.menuBarDisplay == .auto else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+            autoSwitchDisplay = (autoSwitchDisplay == .logos) ? .countdowns : .logos
+            let interval = configuration.privacy.autoSwitchIntervalSeconds
+            try? await Task.sleep(for: .seconds(interval))
         }
     }
 }

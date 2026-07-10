@@ -205,6 +205,42 @@ struct LimitLensConfigurationTests {
         #expect(defaults.notifications.dailyDigestHour == 9)
     }
 
+    @Test("Privacy config round-trips secondary tinting and auto-switch fields")
+    func privacyConfigRoundTripsNewFields() {
+        let url = temporaryConfigURL()
+        let store = LimitLensConfigurationStore(url: url)
+        store.configuration.privacy.menuBarDisplay = .auto
+        store.configuration.privacy.secondaryLimitTintingEnabled = false
+        store.configuration.privacy.autoSwitchIntervalSeconds = 15
+        store.save()
+
+        let reloaded = LimitLensConfigurationStore(url: url)
+
+        #expect(reloaded.configuration.privacy.menuBarDisplay == .auto)
+        #expect(reloaded.configuration.privacy.secondaryLimitTintingEnabled == false)
+        #expect(reloaded.configuration.privacy.autoSwitchIntervalSeconds == 15)
+    }
+
+    @Test("Auto-switch interval sanitizes invalid values to nearest valid option")
+    func autoSwitchIntervalSanitizesInvalidValues() {
+        #expect(PrivacyConfiguration.sanitizedAutoSwitchInterval(7) == 5)
+        #expect(PrivacyConfiguration.sanitizedAutoSwitchInterval(20) == 15)
+        #expect(PrivacyConfiguration.sanitizedAutoSwitchInterval(45) == 30)
+        #expect(PrivacyConfiguration.sanitizedAutoSwitchInterval(10) == 10)
+    }
+
+    @Test("Legacy config without new privacy fields uses defaults")
+    func legacyConfigWithoutNewPrivacyFieldsUsesDefaults() throws {
+        let url = temporaryConfigURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"providers":{"codex":{"isEnabled":true,"executablePath":"/x"},"cursor":{"isEnabled":true,"stateDatabasePath":"/y"},"devin":{"isEnabled":true,"stateDatabasePath":"/z"},"openCodeGo":{"isEnabled":true,"configPath":"/w"}},"privacy":{"menuBarDisplay":"logos"}}"#.utf8).write(to: url)
+
+        let store = LimitLensConfigurationStore(url: url)
+
+        #expect(store.configuration.privacy.secondaryLimitTintingEnabled == true)
+        #expect(store.configuration.privacy.autoSwitchIntervalSeconds == 10)
+    }
+
     @Test("Per-provider thresholds round-trip through save and reload")
     func perProviderThresholdsRoundTrip() {
         let url = temporaryConfigURL()

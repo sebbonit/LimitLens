@@ -55,6 +55,7 @@ struct MenuBarStatusSnapshot: Equatable {
     let accessibilityLabel: String
     let isRefreshing: Bool
     let hidesProviderNames: Bool
+    let secondaryLimitTintingEnabled: Bool
     let menuBarDisplay: MenuBarDisplay
 }
 

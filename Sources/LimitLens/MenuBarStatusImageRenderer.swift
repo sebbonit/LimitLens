@@ -52,7 +52,8 @@ enum MenuBarStatusImageRenderer {
                     center: center,
                     indicator: indicator,
                     isRefreshing: status.isRefreshing,
-                    animationPhase: animationPhase
+                    animationPhase: animationPhase,
+                    secondaryTintingEnabled: status.secondaryLimitTintingEnabled
                 )
                 xOffset += width + ringGap
             }
@@ -65,7 +66,8 @@ enum MenuBarStatusImageRenderer {
                     indicator: indicator,
                     isRefreshing: status.isRefreshing,
                     hidesProviderNames: status.hidesProviderNames,
-                    animationPhase: animationPhase
+                    animationPhase: animationPhase,
+                    secondaryTintingEnabled: status.secondaryLimitTintingEnabled
                 )
             }
         }
@@ -116,7 +118,8 @@ enum MenuBarStatusImageRenderer {
         center: NSPoint,
         indicator: MenuBarProviderIndicator,
         isRefreshing: Bool,
-        animationPhase: CGFloat
+        animationPhase: CGFloat,
+        secondaryTintingEnabled: Bool
     ) {
         let text = indicator.countdownText
         let textSize = countdownTextSize(for: text)
@@ -162,7 +165,7 @@ enum MenuBarStatusImageRenderer {
             drawRefreshShimmer(in: pillRect, path: path, tint: tint, phase: animationPhase)
         }
 
-        let textColor = secondaryIconTint(for: indicator)?.withAlphaComponent(0.92)
+        let textColor = (secondaryTintingEnabled ? secondaryIconTint(for: indicator) : nil)?.withAlphaComponent(0.92)
             ?? NSColor.white.withAlphaComponent(0.92)
         (text as NSString).draw(
             at: NSPoint(x: center.x - textSize.width / 2, y: center.y - textSize.height / 2),
@@ -231,7 +234,8 @@ enum MenuBarStatusImageRenderer {
         indicator: MenuBarProviderIndicator,
         isRefreshing: Bool,
         hidesProviderNames: Bool,
-        animationPhase: CGFloat
+        animationPhase: CGFloat,
+        secondaryTintingEnabled: Bool
     ) {
         let radius = ringDiameter / 2 - ringLineWidth / 2
         let track = NSBezierPath()
@@ -247,20 +251,22 @@ enum MenuBarStatusImageRenderer {
         NSColor.white.withAlphaComponent(0.22).setStroke()
         track.stroke()
 
+        let iconTint = secondaryTintingEnabled ? secondaryIconTint(for: indicator) : nil
+
         switch indicator.state {
         case .loading:
             drawAnimatedFillArc(center: center, radius: radius, indicator: indicator, phase: animationPhase)
-            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, tint: secondaryIconTint(for: indicator))
+            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, tint: iconTint)
         case .unavailable:
             drawUnavailable(center: center, radius: radius)
-            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, alpha: 0.42, tint: secondaryIconTint(for: indicator))
+            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, alpha: 0.42, tint: iconTint)
         case .healthy, .warning, .critical, .stale:
             if isRefreshing {
                 drawAnimatedFillArc(center: center, radius: radius, indicator: indicator, phase: animationPhase)
             } else {
                 drawProgressArc(center: center, radius: radius, indicator: indicator)
             }
-            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, tint: secondaryIconTint(for: indicator))
+            drawProviderIcon(for: indicator.tab, center: center, hidesProviderNames: hidesProviderNames, tint: iconTint)
             if case .stale = indicator.state {
                 drawBadge(center: center, color: .systemOrange, offset: NSPoint(x: 4.5, y: 4.5))
             }

@@ -236,6 +236,7 @@ struct SettingsSectionView: View {
                     Picker("Display mode", selection: menuBarDisplayBinding) {
                         Text("Logos").tag(MenuBarDisplay.logos)
                         Text("Countdowns").tag(MenuBarDisplay.countdowns)
+                        Text("Auto").tag(MenuBarDisplay.auto)
                         Text("Hidden").tag(MenuBarDisplay.hidden)
                     }
                     .pickerStyle(.segmented)
@@ -246,6 +247,27 @@ struct SettingsSectionView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                if viewModel.configuration.privacy.menuBarDisplay == .auto {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Switch interval")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        Picker("Switch interval", selection: autoSwitchIntervalBinding) {
+                            ForEach(PrivacyConfiguration.validAutoSwitchIntervals, id: \.self) { seconds in
+                                Text("\(seconds)s").tag(seconds)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                }
+
+                Toggle("Tint icon by secondary limit", isOn: secondaryTintingBinding)
+                    .font(.caption.weight(.medium))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
             }
         }
     }
@@ -254,6 +276,7 @@ struct SettingsSectionView: View {
         switch viewModel.configuration.privacy.menuBarDisplay {
         case .logos: return "Colored progress rings with provider icons."
         case .countdowns: return "Compact pills with time-remaining text."
+        case .auto: return "Alternates between logos and countdowns at the configured interval."
         case .hidden: return "Anonymizes provider names throughout the UI."
         }
     }
@@ -833,6 +856,24 @@ struct SettingsSectionView: View {
             get: { viewModel.configuration.privacy.menuBarDisplay },
             set: { value in
                 viewModel.updateConfiguration { $0.privacy.menuBarDisplay = value }
+            }
+        )
+    }
+
+    private var secondaryTintingBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.configuration.privacy.secondaryLimitTintingEnabled },
+            set: { value in
+                viewModel.updateConfiguration { $0.privacy.secondaryLimitTintingEnabled = value }
+            }
+        )
+    }
+
+    private var autoSwitchIntervalBinding: Binding<Int> {
+        Binding(
+            get: { viewModel.configuration.privacy.autoSwitchIntervalSeconds },
+            set: { value in
+                viewModel.updateConfiguration { $0.privacy.autoSwitchIntervalSeconds = value }
             }
         )
     }

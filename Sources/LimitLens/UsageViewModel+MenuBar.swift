@@ -32,6 +32,7 @@ extension UsageViewModel {
             accessibilityLabel: helpText,
             isRefreshing: isRefreshing,
             hidesProviderNames: hidesProviderNames,
+            secondaryLimitTintingEnabled: configuration.privacy.secondaryLimitTintingEnabled,
             menuBarDisplay: menuBarDisplay
         )
     }
