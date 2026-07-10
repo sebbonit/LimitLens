@@ -327,7 +327,9 @@ extension UsageViewModel {
             return $0.percent > $1.percent
         }
 
-        return sorted.first { $0.percent < 100 } ?? sorted.last
+        // Prefer the shortest window that hasn't hit 100%, but if all are exhausted
+        // show the shortest one (most urgent) rather than falling through to a longer one.
+        return sorted.first { $0.percent < 100 } ?? sorted.first
     }
 
     private func nextLimit(after selected: LimitCandidate?, in candidates: [LimitCandidate]) -> LimitCandidate? {
