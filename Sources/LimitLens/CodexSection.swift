@@ -33,9 +33,11 @@ struct CodexSectionView: View {
                     PaceCollectingLine()
                 }
 
-                VStack(spacing: 6) {
+                HStack(alignment: .top, spacing: 8) {
                     resetWindowView(title: "Primary", window: snapshot.rateLimit.primary, tint: .blue)
-                    resetWindowView(title: "Secondary", window: snapshot.rateLimit.secondary, tint: .cyan)
+                    if let secondary = snapshot.rateLimit.secondary {
+                        resetWindowView(title: "Secondary", window: secondary, tint: .cyan)
+                    }
                 }
 
                 Divider()
@@ -82,11 +84,11 @@ struct CodexSectionView: View {
     }
 
     private func resetWindowView(title: String, window: RateLimitWindow?, tint: Color) -> some View {
-        UsageMeter(
+        UsageCard(
             label: title,
             percentUsed: window.map { Double($0.usedPercent) },
-            usageText: window.map { "\($0.usedPercent)% used" } ?? "Usage not reported",
-            resetText: "Resets \(UsageFormatting.resetText(timestamp: window?.resetsAt, now: now))",
+            leadingDetail: "Resets \(UsageFormatting.resetText(timestamp: window?.resetsAt, now: now))",
+            trailingDetail: nil,
             tint: tint
         )
     }

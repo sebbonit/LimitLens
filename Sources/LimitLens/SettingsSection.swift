@@ -14,7 +14,7 @@ struct SettingsSectionView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 if viewModel.configuration.setup.showsFirstLaunchSetup {
                     firstLaunchSetupView
                 }
@@ -43,16 +43,19 @@ struct SettingsSectionView: View {
 
     private var providersSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 settingsSectionHeader(
                     title: "Providers",
                     systemImage: "checkmark.circle",
                     detail: "\(enabledProviderCount) of \(ProviderTab.providerCases.count) enabled"
                 )
 
-                VStack(spacing: 6) {
-                    ForEach(ProviderTab.providerCases) { tab in
+                VStack(spacing: 0) {
+                    ForEach(Array(ProviderTab.providerCases.enumerated()), id: \.element.id) { index, tab in
                         providerRow(tab)
+                        if index < ProviderTab.providerCases.count - 1 {
+                            Divider()
+                        }
                     }
                 }
             }
@@ -68,25 +71,26 @@ struct SettingsSectionView: View {
             HStack(spacing: 10) {
                 Toggle("", isOn: providerEnabledBinding(tab))
                     .toggleStyle(.switch)
-                    .scaleEffect(0.75)
+                    .scaleEffect(0.8)
                     .labelsHidden()
 
                 Image(systemName: providerIcon(tab.systemImage, hidesProviderNames: viewModel.hidesProviderNames))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(isEnabled ? .primary : .secondary)
-                    .frame(width: 18)
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(isEnabled ? Color.accentColor.opacity(0.10) : Color.secondary.opacity(0.08)))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
-                        .font(.caption.weight(.semibold))
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(isEnabled ? .primary : .secondary)
                     if hasWarning {
                         Text("Needs attention")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(.orange)
                     } else if isEnabled {
                         Text(pathLabel(for: tab))
-                            .font(.system(size: 9))
+                            .font(.caption2)
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
@@ -106,11 +110,11 @@ struct SettingsSectionView: View {
                 .buttonStyle(.borderless)
                 .disabled(!isEnabled)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
 
             if isExpanded, isEnabled {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
                         TextField(pathPlaceholder(for: tab), text: pathBinding(for: tab))
                             .textFieldStyle(.roundedBorder)
                             .font(.caption)
@@ -119,6 +123,7 @@ struct SettingsSectionView: View {
                             choosePath(for: tab)
                         } label: {
                             Image(systemName: "folder")
+                                .font(.system(size: 12, weight: .medium))
                         }
                         .buttonStyle(.borderless)
                         .help("Choose file")
@@ -127,6 +132,7 @@ struct SettingsSectionView: View {
                             resetProviderPath(tab)
                         } label: {
                             Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 12, weight: .medium))
                         }
                         .buttonStyle(.borderless)
                         .help("Reset to default")
@@ -136,24 +142,18 @@ struct SettingsSectionView: View {
                         StatusLine(icon: "exclamationmark.triangle", color: .orange, text: warning)
                     }
                 }
-                .padding(.top, 4)
-                .padding(.leading, 34)
-                .padding(.bottom, 4)
+                .padding(.top, 2)
+                .padding(.bottom, 8)
+                .padding(.leading, 36)
             }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(0.04))
-        )
     }
 
     // MARK: - OpenCode Go Auth
 
     private var openCodeGoAuthSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     settingsSectionHeader(
                         title: openCodeGoDisplayName,
@@ -168,22 +168,21 @@ struct SettingsSectionView: View {
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
                     .help("Open dashboard")
                 }
 
                 Text("Paste your workspace ID and browser auth cookie to track usage from the web dashboard.")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     TextField("Workspace ID or dashboard URL", text: $openCodeGoWorkspaceInput)
                         .textFieldStyle(.roundedBorder)
-                        .font(.caption)
 
                     SecureField("Auth cookie", text: $openCodeGoAuthCookieInput)
                         .textFieldStyle(.roundedBorder)
-                        .font(.caption)
                 }
 
                 HStack {
@@ -202,8 +201,8 @@ struct SettingsSectionView: View {
                     } label: {
                         Label("Save & refresh", systemImage: "square.and.arrow.down")
                     }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                     .disabled(!canSaveOpenCodeGoDashboardConfig)
                 }
 
@@ -222,25 +221,31 @@ struct SettingsSectionView: View {
 
     private var menuBarSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 settingsSectionHeader(
                     title: "Menu bar",
                     systemImage: "menubar.rectangle",
                     detail: nil
                 )
 
-                Picker("Display mode", selection: menuBarDisplayBinding) {
-                    Text("Logos").tag(MenuBarDisplay.logos)
-                    Text("Countdowns").tag(MenuBarDisplay.countdowns)
-                    Text("Hidden").tag(MenuBarDisplay.hidden)
-                }
-                .pickerStyle(.segmented)
-                .font(.caption.weight(.semibold))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Display mode")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
 
-                Text(menuBarDisplayDescription)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Picker("Display mode", selection: menuBarDisplayBinding) {
+                        Text("Logos").tag(MenuBarDisplay.logos)
+                        Text("Countdowns").tag(MenuBarDisplay.countdowns)
+                        Text("Hidden").tag(MenuBarDisplay.hidden)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
+                    Text(menuBarDisplayDescription)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
@@ -257,7 +262,7 @@ struct SettingsSectionView: View {
 
     private var refreshSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 settingsSectionHeader(
                     title: "Refresh",
                     systemImage: "arrow.clockwise",
@@ -266,7 +271,7 @@ struct SettingsSectionView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Interval")
-                        .font(.caption2.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
 
                     Picker("Interval", selection: refreshIntervalPickerBinding) {
@@ -278,7 +283,7 @@ struct SettingsSectionView: View {
                         Text("Custom").tag(0)
                     }
                     .pickerStyle(.segmented)
-                    .font(.caption.weight(.semibold))
+                    .labelsHidden()
 
                     if viewModel.configuration.refresh.intervalSeconds > 1800
                         || !RefreshConfiguration.validIntervals.contains(viewModel.configuration.refresh.intervalSeconds)
@@ -298,6 +303,8 @@ struct SettingsSectionView: View {
                     }
                 }
 
+                Divider()
+
                 Toggle("Retry on failure", isOn: retryEnabledBinding)
                     .font(.caption)
 
@@ -306,6 +313,7 @@ struct SettingsSectionView: View {
                             value: retryAttemptsBinding,
                             in: 1...10)
                         .font(.caption)
+                        .padding(.leading, 20)
                 }
             }
         }
@@ -315,17 +323,19 @@ struct SettingsSectionView: View {
 
     private var diagnosticsSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 settingsSectionHeader(
                     title: "Diagnostics",
                     systemImage: "stethoscope",
                     detail: nil
                 )
 
-                VStack(spacing: 6) {
-                    ForEach(ProviderTab.providerCases) { tab in
-                        if viewModel.isProviderEnabled(tab) {
-                            diagnosticRow(tab)
+                VStack(spacing: 0) {
+                    let enabledProviders = ProviderTab.providerCases.filter(viewModel.isProviderEnabled)
+                    ForEach(Array(enabledProviders.enumerated()), id: \.element.id) { index, tab in
+                        diagnosticRow(tab)
+                        if index < enabledProviders.count - 1 {
+                            Divider()
                         }
                     }
                 }
@@ -340,22 +350,23 @@ struct SettingsSectionView: View {
         let pathExists = viewModel.providerPathExists(for: tab)
         let testResult = viewModel.diagnosticTestResults[tab]
 
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Image(systemName: providerIcon(tab.systemImage, hidesProviderNames: viewModel.hidesProviderNames))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .frame(width: 18)
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(Color.secondary.opacity(0.08)))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
-                        .font(.caption.weight(.semibold))
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(.primary)
 
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         statusDot(for: loadState, pathExists: pathExists)
                         Text(diagnosticStatusText(for: loadState, pathExists: pathExists))
-                            .font(.system(size: 9))
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -367,12 +378,12 @@ struct SettingsSectionView: View {
                 } label: {
                     Label("Test", systemImage: "bolt")
                 }
-                .buttonStyle(.borderless)
-                .font(.caption2)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .disabled(viewModel.isProviderRefreshing(tab))
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 diagnosticDetailRow(label: "Last fetch", value: lastFetch.map { UsageFormatting.resetText(date: $0, now: viewModel.now) } ?? "Never")
                 diagnosticDetailRow(label: "Path", value: pathExists ? "Found" : "Missing")
                 if let lastError {
@@ -386,21 +397,16 @@ struct SettingsSectionView: View {
                     )
                     if !testResult.succeeded {
                         Text(testResult.message)
-                            .font(.system(size: 9))
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
-                            .padding(.leading, 34)
+                            .padding(.leading, 50)
                     }
                 }
             }
-            .padding(.leading, 34)
+            .padding(.leading, 30)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(0.04))
-        )
+        .padding(.vertical, 6)
     }
 
     private func statusDot(for loadState: UsageViewModel.LoadState, pathExists: Bool) -> some View {
@@ -432,11 +438,11 @@ struct SettingsSectionView: View {
     private func diagnosticDetailRow(label: String, value: String, color: Color = .secondary) -> some View {
         HStack(spacing: 6) {
             Text(label)
-                .font(.system(size: 9, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(.tertiary)
-                .frame(width: 40, alignment: .leading)
+                .frame(width: 50, alignment: .leading)
             Text(value)
-                .font(.system(size: 9))
+                .font(.caption2)
                 .foregroundStyle(color)
                 .lineLimit(1)
         }
@@ -450,45 +456,48 @@ struct SettingsSectionView: View {
                 viewModel.resetConfigurationToDefaults()
                 selectedTab = .overview
             }
-            .buttonStyle(.borderless)
-            .font(.caption)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
             Spacer()
             Text("Saved automatically")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
+        .padding(.top, 2)
     }
 
     // MARK: - First launch
 
     private var firstLaunchSetupView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "checklist")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 16)
+        HStack(spacing: 10) {
+            Image(systemName: "checklist")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+            VStack(alignment: .leading, spacing: 2) {
                 Text("First setup")
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                Button {
-                    completeFirstLaunchSetup()
-                } label: {
-                    Label("Done", systemImage: "checkmark")
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
+                    .font(.subheadline.weight(.semibold))
+                Text("Detected providers are ready. Add \(providerName("OpenCode Go", privateName: "Provider 4", hidesProviderNames: viewModel.hidesProviderNames)) auth below or finish with the current setup.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-
-            Text("Detected providers are ready. Add \(providerName("OpenCode Go", privateName: "Provider 4", hidesProviderNames: viewModel.hidesProviderNames)) auth below or finish with the current setup.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Button {
+                completeFirstLaunchSetup()
+            } label: {
+                Label("Done", systemImage: "checkmark")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
-        .padding(8)
+        .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.accentColor.opacity(0.09))
+                .fill(Color.accentColor.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.15), lineWidth: 0.5)
         )
     }
 
@@ -496,7 +505,7 @@ struct SettingsSectionView: View {
 
     private var notificationsSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     settingsSectionHeader(
                         title: "Notifications",
@@ -506,80 +515,60 @@ struct SettingsSectionView: View {
                     Toggle("", isOn: notificationsEnabledBinding)
                         .toggleStyle(.switch)
                         .labelsHidden()
-                        .scaleEffect(0.75)
+                        .scaleEffect(0.8)
                 }
 
                 if viewModel.configuration.notifications.enabled {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Toggle("Critical usage", isOn: notificationsCriticalBinding)
-                            .font(.caption2)
-                        Toggle("Billing expiring", isOn: notificationsBillingBinding)
-                            .font(.caption2)
-                        Toggle("Provider unavailable", isOn: notificationsUnavailableBinding)
-                            .font(.caption2)
+                    VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle("Critical usage", isOn: notificationsCriticalBinding)
+                                .font(.caption)
+                            Toggle("Billing expiring", isOn: notificationsBillingBinding)
+                                .font(.caption)
+                            Toggle("Provider unavailable", isOn: notificationsUnavailableBinding)
+                                .font(.caption)
+                        }
 
                         Divider()
 
-                        Button {
-                            viewModel.sendTestNotification()
-                        } label: {
-                            Label("Send test notification", systemImage: "bell.badge")
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-
-                        if let status = viewModel.notificationTestStatus {
-                            Text(status)
-                                .font(.caption2)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Per provider")
+                                .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
 
-                            if viewModel.notificationNeedsSettings {
-                                Button {
-                                    viewModel.openNotificationSettings()
-                                } label: {
-                                    Label("Open System Settings", systemImage: "gear")
-                                }
-                                .buttonStyle(.borderless)
-                                .font(.caption)
+                            HStack(spacing: 12) {
+                                notificationProviderToggle(.codex, label: "Codex")
+                                notificationProviderToggle(.cursor, label: "Cursor")
+                                notificationProviderToggle(.devin, label: "Devin")
+                                notificationProviderToggle(.openCodeGo, label: "Go")
                             }
                         }
 
                         Divider()
 
-                        Text("Per provider")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Critical threshold")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
 
-                        HStack(spacing: 12) {
-                            notificationProviderToggle(.codex, label: "Codex")
-                            notificationProviderToggle(.cursor, label: "Cursor")
-                            notificationProviderToggle(.devin, label: "Devin")
-                            notificationProviderToggle(.openCodeGo, label: "Go")
+                            VStack(spacing: 4) {
+                                notificationThresholdRow(.codex, label: "Codex")
+                                notificationThresholdRow(.cursor, label: "Cursor")
+                                notificationThresholdRow(.devin, label: "Devin")
+                                notificationThresholdRow(.openCodeGo, label: "Go")
+                            }
                         }
 
                         Divider()
 
-                        Text("Critical threshold")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        VStack(spacing: 4) {
-                            notificationThresholdRow(.codex, label: "Codex")
-                            notificationThresholdRow(.cursor, label: "Cursor")
-                            notificationThresholdRow(.devin, label: "Devin")
-                            notificationThresholdRow(.openCodeGo, label: "Go")
-                        }
-
-                        Divider()
-
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text("Quiet hours")
-                                .font(.caption2.weight(.semibold))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Start")
-                                        .font(.system(size: 9))
+                                        .font(.caption2)
                                         .foregroundStyle(.secondary)
                                     Picker("", selection: quietHoursStartBinding) {
                                         Text("Off").tag(-1)
@@ -594,7 +583,7 @@ struct SettingsSectionView: View {
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("End")
-                                        .font(.system(size: 9))
+                                        .font(.caption2)
                                         .foregroundStyle(.secondary)
                                     Picker("", selection: quietHoursEndBinding) {
                                         Text("Off").tag(-1)
@@ -615,7 +604,7 @@ struct SettingsSectionView: View {
                         Divider()
 
                         Toggle("Daily digest", isOn: notificationsDigestBinding)
-                            .font(.caption2)
+                            .font(.caption)
 
                         if viewModel.configuration.notifications.dailyDigest {
                             HStack(spacing: 8) {
@@ -634,6 +623,37 @@ struct SettingsSectionView: View {
                                 Spacer()
                             }
                             .padding(.leading, 26)
+                        }
+
+                        Divider()
+
+                        HStack {
+                            Button {
+                                viewModel.sendTestNotification()
+                            } label: {
+                                Label("Send test notification", systemImage: "bell.badge")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Spacer()
+
+                            if let status = viewModel.notificationTestStatus {
+                                Text(status)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+
+                            if viewModel.notificationNeedsSettings {
+                                Button {
+                                    viewModel.openNotificationSettings()
+                                } label: {
+                                    Label("System Settings", systemImage: "gear")
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                            }
                         }
                     }
                     .padding(.leading, 26)
@@ -725,13 +745,14 @@ struct SettingsSectionView: View {
     // MARK: - Helpers
 
     private func settingsSectionHeader(title: String, systemImage: String, detail: String?) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: systemImage)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .frame(width: 14)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(Color.secondary.opacity(0.10)))
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
             Spacer()
             if let detail {
                 Text(detail)

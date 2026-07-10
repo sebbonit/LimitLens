@@ -28,9 +28,18 @@ struct OverviewSectionView: View {
                 if summaries.isEmpty {
                     StatusLine(icon: "slider.horizontal.3", color: .secondary, text: "No providers enabled.")
                 } else {
-                    VStack(spacing: 2) {
-                        ForEach(summaries) { summary in
-                            overviewRow(summary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Providers")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(summaries.enumerated()), id: \.element.id) { index, summary in
+                                overviewRow(summary)
+                                if index < summaries.count - 1 {
+                                    Divider()
+                                }
+                            }
                         }
                     }
                 }
@@ -162,7 +171,7 @@ struct OverviewSectionView: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text(entry.label)
-                    .font(.system(size: 8, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
@@ -174,7 +183,7 @@ struct OverviewSectionView: View {
                     .foregroundStyle(primaryColor)
                     .lineLimit(1)
                 Text(secondaryText)
-                    .font(.system(size: 8))
+                    .font(.system(size: 9))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
