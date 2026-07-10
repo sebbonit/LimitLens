@@ -15,7 +15,7 @@ struct DevinSectionView: View {
 
     var body: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(
                     title: providerName("Devin", privateName: "Provider 3", hidesProviderNames: hidesProviderNames),
                     detail: headerDetail,
@@ -34,7 +34,7 @@ struct DevinSectionView: View {
                 }
 
                 if !snapshots.isEmpty {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         ForEach(snapshots, id: \.appName) { quota in
                             desktopQuotaView(quota)
                         }
@@ -55,7 +55,7 @@ struct DevinSectionView: View {
     }
 
     private func desktopQuotaView(_ quota: DesktopQuotaSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 6) {
             quotaBar(
                 title: "Daily",
                 usedPercent: quota.dailyUsedPercent,
@@ -75,18 +75,18 @@ struct DevinSectionView: View {
                 Divider()
 
                 HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Extra usage balance")
-                            .font(.caption.weight(.semibold))
-                        if let cycleEnd = quota.cycleEnd {
-                            Text("Plan ends \(UsageFormatting.resetText(date: cycleEnd, now: now))")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    Text("EXTRA USAGE")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
                     Spacer()
                     Text(UsageFormatting.usd(micros: quota.overageBalanceMicros))
                         .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                    if let cycleEnd = quota.cycleEnd {
+                        Text("· \(UsageFormatting.resetText(date: cycleEnd, now: now))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -100,26 +100,12 @@ struct DevinSectionView: View {
         tint: Color
     ) -> some View {
         let displayedPercent = isUnavailable ? nil : usedPercent
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                Text(resetAt.map { UsageFormatting.timeRemainingText(date: $0, now: now) } ?? "Unknown")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(resetAt == nil ? .secondary : .primary)
-            }
-
-            ProgressView(value: Double(displayedPercent ?? 0), total: 100)
-                .tint(tint)
-
-            HStack {
-                Text(displayedPercent.map { "\($0)% used" } ?? "Usage not reported")
-                Spacer()
-                Text("Resets \(quotaResetText(resetAt, now: now))")
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        }
+        return UsageMeter(
+            label: title,
+            percentUsed: displayedPercent.map { Double($0) },
+            usageText: displayedPercent.map { "\($0)% used" } ?? "Usage not reported",
+            resetText: "Resets \(quotaResetText(resetAt, now: now))",
+            tint: tint
+        )
     }
 }

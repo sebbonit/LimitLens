@@ -15,7 +15,7 @@ struct CodexSectionView: View {
 
     var body: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(
                     title: providerName("Codex", privateName: "Provider 1", hidesProviderNames: hidesProviderNames),
                     detail: codexHeaderDetail,
@@ -33,7 +33,7 @@ struct CodexSectionView: View {
                     PaceCollectingLine()
                 }
 
-                VStack(spacing: 10) {
+                VStack(spacing: 6) {
                     resetWindowView(title: "Primary", window: snapshot.rateLimit.primary, tint: .blue)
                     resetWindowView(title: "Secondary", window: snapshot.rateLimit.secondary, tint: .cyan)
                 }
@@ -42,7 +42,7 @@ struct CodexSectionView: View {
 
                 resetCreditsView(snapshot.resetCredits)
 
-                LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 10) {
+                LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 8) {
                     MetricTile(
                         title: "Lifetime tokens",
                         value: UsageFormatting.compactNumber(snapshot.tokenUsage?.lifetimeTokens)
@@ -82,27 +82,13 @@ struct CodexSectionView: View {
     }
 
     private func resetWindowView(title: String, window: RateLimitWindow?, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                Text(UsageFormatting.timeRemainingText(timestamp: window?.resetsAt, now: now))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-            }
-
-            ProgressView(value: Double(window?.usedPercent ?? 0), total: 100)
-                .tint(tint)
-
-            HStack {
-                Text("\(window?.usedPercent ?? 0)% used")
-                Spacer()
-                Text("Resets \(UsageFormatting.resetText(timestamp: window?.resetsAt, now: now))")
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        }
+        UsageMeter(
+            label: title,
+            percentUsed: window.map { Double($0.usedPercent) },
+            usageText: window.map { "\($0.usedPercent)% used" } ?? "Usage not reported",
+            resetText: "Resets \(UsageFormatting.resetText(timestamp: window?.resetsAt, now: now))",
+            tint: tint
+        )
     }
 
     private func resetCreditsView(_ credits: ResetCreditInfo) -> some View {

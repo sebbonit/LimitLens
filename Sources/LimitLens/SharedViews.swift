@@ -7,10 +7,16 @@ struct SectionBlock<Content: View>: View {
 
     var body: some View {
         content
-            .padding(12)
+            .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+            )
     }
 }
 
@@ -35,10 +41,10 @@ struct DailyUsageChart: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Recent Codex tokens")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                 Spacer()
                 Text("\(displayedBuckets.count)d")
                     .font(.caption2)
@@ -75,6 +81,47 @@ struct DailyUsageChart: View {
     }
 }
 
+struct UsageMeter: View {
+    let label: String
+    let percentUsed: Double?
+    let usageText: String
+    let resetText: String
+    let tint: Color
+
+    private var clampedPercent: Double {
+        min(max(percentUsed ?? 0, 0), 100)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label.uppercased())
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(percentText(percentUsed))
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(percentUsed == nil ? .secondary : .primary)
+            }
+
+            ProgressView(value: clampedPercent, total: 100)
+                .controlSize(.small)
+                .tint(tint)
+
+            HStack {
+                Text(usageText)
+                Spacer()
+                Text(resetText)
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+        .padding(.vertical, 1)
+    }
+}
+
 struct MetricTile: View {
     let title: String
     let value: String
@@ -82,12 +129,13 @@ struct MetricTile: View {
     var captionColor: Color = .secondary
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.caption2)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.callout.weight(.semibold))
+                .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             if let caption {
@@ -98,7 +146,7 @@ struct MetricTile: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 42, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
@@ -108,12 +156,13 @@ struct StatusLine: View {
     let text: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 6) {
             Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(color)
-                .frame(width: 16)
+                .frame(width: 14)
             Text(text)
-                .font(.callout)
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -306,47 +355,55 @@ struct SectionHeader: View {
     var onRefresh: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 18)
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if let detail, !detail.isEmpty {
-                    Text(detail)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                if let onRefresh {
-                    Button(action: onRefresh) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 11, weight: .semibold))
-                            .rotationEffect(.degrees(isRefreshing ? 360 : 0))
-                            .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(isRefreshing)
-                    .help("Refresh")
-                }
-            }
-            if let lastUpdated {
-                Text("Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))")
+        HStack(spacing: 7) {
+            Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+
+            if let detail, !detail.isEmpty {
+                Text(detail)
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+
+            Spacer(minLength: 4)
+
+            if let lastUpdated {
+                Text(lastUpdated.formatted(date: .omitted, time: .shortened))
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+                    .help("Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))")
+            }
+
             if let dashboardURL {
                 Button {
                     NSWorkspace.shared.open(dashboardURL)
                 } label: {
-                    Label("Open", systemImage: "globe")
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.system(size: 10, weight: .semibold))
                 }
                 .buttonStyle(.borderless)
-                .font(.caption)
+                .foregroundStyle(.secondary)
                 .help("Open dashboard")
+            }
+
+            if let onRefresh {
+                Button(action: onRefresh) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .semibold))
+                        .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                        .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .disabled(isRefreshing)
+                .help("Refresh")
             }
         }
     }

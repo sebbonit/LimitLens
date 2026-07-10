@@ -16,7 +16,7 @@ struct OpenCodeGoSectionView: View {
 
     var body: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(
                     title: providerName("OpenCode Go", privateName: "Provider 4", hidesProviderNames: hidesProviderNames),
                     detail: headerDetail,
@@ -52,7 +52,7 @@ struct OpenCodeGoSectionView: View {
     }
 
     private func openCodeGoUsageView(_ snapshot: OpenCodeGoUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 6) {
             openCodeGoUsageBar(title: "Rolling", window: snapshot.rolling, tint: .mint)
             openCodeGoUsageBar(title: "Weekly", window: snapshot.weekly, tint: .orange)
             openCodeGoUsageBar(title: "Monthly", window: snapshot.monthly, tint: .blue)
@@ -60,26 +60,12 @@ struct OpenCodeGoSectionView: View {
     }
 
     private func openCodeGoUsageBar(title: String, window: OpenCodeGoUsageWindow?, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                Text(UsageFormatting.timeRemainingText(date: window?.resetAt, now: now))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(window?.resetAt == nil ? .secondary : .primary)
-            }
-
-            ProgressView(value: window?.usedPercent ?? 0, total: 100)
-                .tint(tint)
-
-            HStack {
-                Text(window.map { "\(Int($0.usedPercent.rounded()))% used" } ?? "Usage not reported")
-                Spacer()
-                Text("Resets \(quotaResetText(window?.resetAt, now: now))")
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        }
+        UsageMeter(
+            label: title,
+            percentUsed: window?.usedPercent,
+            usageText: window.map { "\(Int($0.usedPercent.rounded()))% used" } ?? "Usage not reported",
+            resetText: "Resets \(quotaResetText(window?.resetAt, now: now))",
+            tint: tint
+        )
     }
 }

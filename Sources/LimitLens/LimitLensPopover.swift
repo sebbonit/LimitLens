@@ -7,26 +7,27 @@ struct LimitLensPopover: View {
     @State private var selectedTab: ProviderTab = .overview
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             header
             tabBar
             contentView
-
             footer
         }
-        .padding(16)
+        .padding(12)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear(perform: prepareSetupView)
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 9) {
             SMark()
-            VStack(alignment: .leading, spacing: 2) {
+                .scaleEffect(0.86)
+                .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 0) {
                 Text("LimitLens")
-                    .font(.headline.weight(.semibold))
-                Text("Personal AI Usage Dashboard")
-                    .font(.caption)
+                    .font(.subheadline.weight(.semibold))
+                Text("Usage monitor")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             Spacer()
@@ -34,10 +35,13 @@ struct LimitLensPopover: View {
                 Task { await viewModel.refresh() }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.secondary.opacity(0.10)))
             }
-            .buttonStyle(.borderless)
-            .help("Refresh")
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Refresh all providers")
         }
     }
 
@@ -112,12 +116,16 @@ struct LimitLensPopover: View {
     }
 
     private var tabBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 2) {
             ForEach(viewModel.visibleTabs) { tab in
                 tabButton(for: tab)
             }
         }
-        .padding(.bottom, 2)
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
     }
 
     private func tabButton(for tab: ProviderTab) -> some View {
@@ -125,22 +133,22 @@ struct LimitLensPopover: View {
         return Button {
             selectedTab = tab
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Image(systemName: providerIcon(tab.systemImage, hidesProviderNames: viewModel.hidesProviderNames))
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
                 Text(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.75)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.18) : Color(nsColor: .controlBackgroundColor))
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(isSelected ? Color(nsColor: .windowBackgroundColor) : .clear)
             )
-            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
         }
         .buttonStyle(.plain)
         .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
@@ -226,8 +234,9 @@ struct LimitLensPopover: View {
     private var footer: some View {
         HStack {
             if let fetchedAt = latestFetchDate {
-                Text("Updated \(fetchedAt.formatted(date: .omitted, time: .shortened))")
+                Text("Synced \(fetchedAt.formatted(date: .omitted, time: .shortened))")
                     .font(.caption2)
+                    .monospacedDigit()
                     .foregroundStyle(.tertiary)
             }
             Spacer()

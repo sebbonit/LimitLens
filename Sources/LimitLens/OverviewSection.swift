@@ -13,7 +13,7 @@ struct OverviewSectionView: View {
 
     var body: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(
                     title: "Overview",
                     detail: overviewDetail,
@@ -28,7 +28,7 @@ struct OverviewSectionView: View {
                 if summaries.isEmpty {
                     StatusLine(icon: "slider.horizontal.3", color: .secondary, text: "No providers enabled.")
                 } else {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 2) {
                         ForEach(summaries) { summary in
                             overviewRow(summary)
                         }
@@ -61,60 +61,64 @@ struct OverviewSectionView: View {
         Button {
             onSelectTab(summary.tab)
         } label: {
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(severityColor(summary.severity).opacity(0.16))
-                    Image(systemName: providerIcon(summary.tab.systemImage, hidesProviderNames: hidesProviderNames))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(severityColor(summary.severity))
-                }
-                .frame(width: 28, height: 28)
+            HStack(spacing: 8) {
+                Image(systemName: providerIcon(summary.tab.systemImage, hidesProviderNames: hidesProviderNames))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(severityColor(summary.severity))
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(severityColor(summary.severity).opacity(0.12)))
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(providerName(summary.tab.displayName, privateName: summary.tab.privateName, hidesProviderNames: hidesProviderNames))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.primary)
-                    Text(providerSafeMessage(summary.subdetail, hidesProviderNames: hidesProviderNames))
+                    Text(overviewSupportText(for: summary))
+                        .font(.caption2)
+                        .foregroundStyle(overviewSupportColor(for: summary))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(providerSafeMessage(summary.detail, hidesProviderNames: hidesProviderNames))
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(summary.severity == .unavailable ? .secondary : .primary)
+                    Text(summary.secondaryDetail.map { providerSafeMessage($0, hidesProviderNames: hidesProviderNames) } ?? "—")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    if let projection = paceProjections[summary.tab] {
-                        Text(projection.summaryText)
-                            .font(.system(size: 9))
-                            .foregroundStyle(projection.willExhaustBeforeReset ? .orange : .secondary)
-                            .lineLimit(1)
-                    } else if collectingPaceData.contains(summary.tab) {
-                        Text("Collecting pace data...")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(providerSafeMessage(summary.detail, hidesProviderNames: hidesProviderNames))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(summary.severity == .unavailable ? .secondary : .primary)
-                    if let secondaryDetail = summary.secondaryDetail {
-                        Text(providerSafeMessage(secondaryDetail, hidesProviderNames: hidesProviderNames))
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text(" ")
-                            .font(.caption2.weight(.medium))
-                    }
                 }
             }
+            .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
+    private func overviewSupportText(for summary: ProviderUsageSummary) -> String {
+        let status: String
+        if let projection = paceProjections[summary.tab] {
+            status = projection.summaryText
+        } else if collectingPaceData.contains(summary.tab) {
+            status = "Collecting pace data"
+        } else {
+            status = ""
+        }
+        let detail = providerSafeMessage(summary.subdetail, hidesProviderNames: hidesProviderNames)
+        return status.isEmpty ? detail : "\(detail) · \(status)"
+    }
+
+    private func overviewSupportColor(for summary: ProviderUsageSummary) -> Color {
+        if let projection = paceProjections[summary.tab], projection.willExhaustBeforeReset {
+            return .orange
+        }
+        return collectingPaceData.contains(summary.tab) ? Color.secondary.opacity(0.65) : .secondary
+    }
+
     private var billingExpirySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Billing & renewals")
                     .font(.caption2.weight(.semibold))
@@ -126,8 +130,8 @@ struct OverviewSectionView: View {
             }
 
             LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
-                spacing: 8
+                columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)],
+                spacing: 2
             ) {
                 if billingExpiries.isEmpty {
                     Text("No enabled providers")
@@ -147,39 +151,36 @@ struct OverviewSectionView: View {
         let primaryText: String = entry.date.map { UsageFormatting.resetText(date: $0, now: now) } ?? entry.amountText ?? "—"
         let secondaryText: String = entry.date.map { UsageFormatting.relativeDayText(date: $0, now: now) } ?? entry.detailText ?? "No billing"
         let primaryColor: Color = entry.date == nil && entry.amountText == nil ? .secondary : (entry.date == nil ? .primary : expiryColor(entry.urgency))
-        return HStack(spacing: 8) {
+        return HStack(spacing: 6) {
             Image(systemName: providerIcon(entry.tab.systemImage, hidesProviderNames: hidesProviderNames))
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(expiryColor(entry.urgency))
-                .frame(width: 14)
-            VStack(alignment: .leading, spacing: 1) {
+                .frame(width: 12)
+            VStack(alignment: .leading, spacing: 0) {
                 Text(providerShortName(entry.tab, hidesProviderNames: hidesProviderNames))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text(entry.label)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 1) {
+            Spacer(minLength: 2)
+            VStack(alignment: .trailing, spacing: 0) {
                 Text(primaryText)
                     .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
                     .foregroundStyle(primaryColor)
                     .lineLimit(1)
                 Text(secondaryText)
-                    .font(.system(size: 9))
+                    .font(.system(size: 8))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
-        .padding(8)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(0.08))
-        )
     }
 
     private var billingSummaryDetail: String {

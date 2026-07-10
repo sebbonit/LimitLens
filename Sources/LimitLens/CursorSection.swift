@@ -15,7 +15,7 @@ struct CursorSectionView: View {
 
     var body: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(
                     title: providerName("Cursor", privateName: "Provider 2", hidesProviderNames: hidesProviderNames),
                     detail: headerDetail,
@@ -57,30 +57,19 @@ struct CursorSectionView: View {
     }
 
     private func cursorUsageView(_ cursor: CursorUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(Int(cursor.usedPercent.rounded()))% used")
-                        .font(.title3.weight(.semibold))
-                    Text("Resets \(cursorResetText(cursor.billingCycleEnd, now: now))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(UsageFormatting.usd(cents: cursor.remainingCents))
-                        .font(.callout.weight(.semibold))
-                    Text("of \(UsageFormatting.usd(cents: cursor.limitCents)) left")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            ProgressView(value: cursor.usedPercent, total: 100)
-                .tint(.purple)
+        VStack(alignment: .leading, spacing: 6) {
+            UsageMeter(
+                label: "Plan usage",
+                percentUsed: cursor.usedPercent,
+                usageText: "\(UsageFormatting.usd(cents: cursor.remainingCents)) left",
+                resetText: "Resets \(cursorResetText(cursor.billingCycleEnd, now: now))",
+                tint: .purple
+            )
 
             if cursor.autoPercentUsed != nil || cursor.apiPercentUsed != nil {
-                VStack(spacing: 9) {
+                Divider()
+
+                VStack(spacing: 6) {
                     cursorLimitView(
                         title: "Auto",
                         percentUsed: cursor.autoPercentUsed,
@@ -96,7 +85,6 @@ struct CursorSectionView: View {
                         tint: .indigo
                     )
                 }
-                .padding(.top, 2)
             }
         }
     }
@@ -108,28 +96,12 @@ struct CursorSectionView: View {
         limitCents: Int?,
         tint: Color
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                Text(percentText(percentUsed))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-            }
-
-            ProgressView(value: percentUsed ?? 0, total: 100)
-                .tint(tint)
-
-            if spendCents != nil || limitCents != nil {
-                HStack {
-                    Text("\(UsageFormatting.usd(cents: spendCents)) used")
-                    Spacer()
-                    Text("Limit \(UsageFormatting.usd(cents: limitCents))")
-                }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            }
-        }
+        UsageMeter(
+            label: title,
+            percentUsed: percentUsed,
+            usageText: "\(UsageFormatting.usd(cents: spendCents)) used",
+            resetText: "Limit \(UsageFormatting.usd(cents: limitCents))",
+            tint: tint
+        )
     }
 }

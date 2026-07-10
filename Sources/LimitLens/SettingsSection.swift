@@ -14,7 +14,7 @@ struct SettingsSectionView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 if viewModel.configuration.setup.showsFirstLaunchSetup {
                     firstLaunchSetupView
                 }
@@ -30,7 +30,7 @@ struct SettingsSectionView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.visible)
-        .frame(height: 750)
+        .frame(height: 620)
         .onAppear {
             if !didLoadConfig {
                 didLoadConfig = true
@@ -43,7 +43,7 @@ struct SettingsSectionView: View {
 
     private var providersSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 settingsSectionHeader(
                     title: "Providers",
                     systemImage: "checkmark.circle",
@@ -141,11 +141,11 @@ struct SettingsSectionView: View {
                 .padding(.bottom, 4)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(0.06))
+                .fill(Color.secondary.opacity(0.04))
         )
     }
 
@@ -153,7 +153,7 @@ struct SettingsSectionView: View {
 
     private var openCodeGoAuthSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     settingsSectionHeader(
                         title: openCodeGoDisplayName,
@@ -222,7 +222,7 @@ struct SettingsSectionView: View {
 
     private var menuBarSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 settingsSectionHeader(
                     title: "Menu bar",
                     systemImage: "menubar.rectangle",
@@ -257,7 +257,7 @@ struct SettingsSectionView: View {
 
     private var refreshSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 settingsSectionHeader(
                     title: "Refresh",
                     systemImage: "arrow.clockwise",
@@ -315,7 +315,7 @@ struct SettingsSectionView: View {
 
     private var diagnosticsSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 settingsSectionHeader(
                     title: "Diagnostics",
                     systemImage: "stethoscope",
@@ -395,11 +395,11 @@ struct SettingsSectionView: View {
             }
             .padding(.leading, 34)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(0.06))
+                .fill(Color.secondary.opacity(0.04))
         )
     }
 
@@ -485,7 +485,7 @@ struct SettingsSectionView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(10)
+        .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.accentColor.opacity(0.09))
@@ -496,7 +496,7 @@ struct SettingsSectionView: View {
 
     private var notificationsSection: some View {
         SectionBlock {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     settingsSectionHeader(
                         title: "Notifications",
@@ -725,17 +725,18 @@ struct SettingsSectionView: View {
     // MARK: - Helpers
 
     private func settingsSectionHeader(title: String, systemImage: String, detail: String?) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .frame(width: 18)
+                .frame(width: 14)
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .font(.caption.weight(.semibold))
             Spacer()
             if let detail {
                 Text(detail)
-                    .font(.caption.weight(.medium))
+                    .font(.caption2)
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
         }
