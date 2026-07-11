@@ -19,4 +19,9 @@ cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/LimitLens"
 
 codesign --force --deep --sign - "$APP_DIR"
 
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+if [[ -x "$LSREGISTER" ]]; then
+    "$LSREGISTER" -f "$APP_DIR"
+fi
+
 echo "Built $APP_DIR"

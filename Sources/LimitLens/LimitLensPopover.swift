@@ -20,9 +20,8 @@ struct LimitLensPopover: View {
 
     private var header: some View {
         HStack(spacing: 9) {
-            SMark()
-                .scaleEffect(0.86)
-                .frame(width: 24, height: 24)
+            LimitLensMark()
+                .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 0) {
                 Text("LimitLens")
                     .font(.subheadline.weight(.semibold))

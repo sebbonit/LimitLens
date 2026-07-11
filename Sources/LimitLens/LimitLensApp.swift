@@ -6,6 +6,10 @@ import SwiftUI
 struct LimitLensApp: App {
     @StateObject private var viewModel = UsageViewModel()
 
+    init() {
+        NSApplication.shared.applicationIconImage = LimitLensArtwork.image
+    }
+
     var body: some Scene {
         MenuBarExtra {
             LimitLensPopover(viewModel: viewModel)

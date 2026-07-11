@@ -216,52 +216,25 @@ struct PaceCollectingLine: View {
     }
 }
 
-struct SMark: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.08, green: 0.14, blue: 0.22),
-                            Color(red: 0.04, green: 0.07, blue: 0.12)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-            ActivityRingsMark()
-                .padding(5)
-        }
-        .frame(width: 28, height: 28)
-        .overlay(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
-        )
-    }
+enum LimitLensArtwork {
+    static let image: NSImage = {
+        let bundledURL = Bundle.main.url(forResource: "LimitLens", withExtension: "icns")
+        let sourceURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("Resources/LimitLens.icns")
+
+        return bundledURL.flatMap(NSImage.init(contentsOf:))
+            ?? NSImage(contentsOf: sourceURL)
+            ?? NSImage(size: NSSize(width: 512, height: 512))
+    }()
 }
 
-struct ActivityRingsMark: View {
+struct LimitLensMark: View {
     var body: some View {
-        ZStack {
-            ring(color: Color(red: 0.24, green: 0.51, blue: 0.96), progress: 0.72, radius: 9)
-            ring(color: Color(red: 0.30, green: 0.85, blue: 0.60), progress: 0.45, radius: 6.5)
-            ring(color: Color(red: 0.96, green: 0.56, blue: 0.20), progress: 0.85, radius: 4)
-            ring(color: Color(red: 0.69, green: 0.32, blue: 0.96), progress: 0.30, radius: 1.5)
-        }
-    }
-
-    private func ring(color: Color, progress: CGFloat, radius: CGFloat) -> some View {
-        ZStack {
-            Circle()
-                .stroke(color.opacity(0.15), lineWidth: 1.8)
-                .frame(width: radius * 2, height: radius * 2)
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(color, style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
-                .frame(width: radius * 2, height: radius * 2)
-                .rotationEffect(.degrees(-90))
-        }
+        Image(nsImage: LimitLensArtwork.image)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .accessibilityHidden(true)
     }
 }
 
