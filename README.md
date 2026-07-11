@@ -159,7 +159,7 @@ Scripts/build-app.sh
 open .build/LimitLens.app
 ```
 
-This generates the icon, builds the release binary, and creates a standalone `.app` bundle you can drag to your Applications folder.
+This builds the release binary and creates a standalone `.app` bundle with the bundled LimitLens icon that you can drag to your Applications folder.
 
 ---
 
@@ -315,11 +315,11 @@ AiStat/
 │   └── screenshots/                           # Screenshots for README
 ├── Resources/
 │   ├── Info.plist
-│   └── LimitLens.icns
+│   ├── LimitLens.icns
+│   └── LimitLensIcon.png          # High-resolution app icon master
 ├── Scripts/
 │   ├── build-app.sh                # Build .app bundle
-│   ├── configure-opencode-go.sh    # Terminal fallback for OpenCode Go config
-│   └── generate-icon.swift         # Generate .icns from source
+│   └── configure-opencode-go.sh    # Terminal fallback for OpenCode Go config
 ├── AGENTS.md                       # Agent guidelines
 └── README.md
 ```

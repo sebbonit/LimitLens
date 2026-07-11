@@ -5,7 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${CONFIGURATION:-release}"
 APP_DIR="$ROOT_DIR/.build/LimitLens.app"
 
-"$ROOT_DIR/Scripts/generate-icon.swift"
 swift build -c "$CONFIGURATION"
 
 BIN_DIR="$(swift build -c "$CONFIGURATION" --show-bin-path)"
