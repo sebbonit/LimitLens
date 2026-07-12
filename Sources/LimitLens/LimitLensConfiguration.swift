@@ -7,6 +7,30 @@ enum MenuBarDisplay: String, Codable, Equatable, CaseIterable {
     case hidden
 }
 
+enum AppAppearance: String, Codable, Equatable, CaseIterable, Identifiable {
+    case classic
+    case studio
+    case terminal
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .classic: return "Classic"
+        case .studio: return "Studio"
+        case .terminal: return "Terminal"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .classic: return "Balanced cards with top navigation."
+        case .studio: return "A spacious workspace with a labeled sidebar."
+        case .terminal: return "Compact, dark and keyboard-console inspired."
+        }
+    }
+}
+
 struct LimitLensConfiguration: Codable, Equatable {
     static let currentCodexExecutablePath = "/Applications/ChatGPT.app/Contents/Resources/codex"
     static let legacyCodexExecutablePaths = [
@@ -30,19 +54,22 @@ struct LimitLensConfiguration: Codable, Equatable {
     var setup: SetupConfiguration
     var refresh: RefreshConfiguration
     var notifications: NotificationConfiguration
+    var appearance: AppAppearance
 
     init(
         providers: ProviderConfiguration,
         privacy: PrivacyConfiguration,
         setup: SetupConfiguration = SetupConfiguration(),
         refresh: RefreshConfiguration = RefreshConfiguration(),
-        notifications: NotificationConfiguration = NotificationConfiguration()
+        notifications: NotificationConfiguration = NotificationConfiguration(),
+        appearance: AppAppearance = .classic
     ) {
         self.providers = providers
         self.privacy = privacy
         self.setup = setup
         self.refresh = refresh
         self.notifications = notifications
+        self.appearance = appearance
     }
 
     static let defaults = LimitLensConfiguration(
@@ -73,6 +100,7 @@ struct LimitLensConfiguration: Codable, Equatable {
         case setup
         case refresh
         case notifications
+        case appearance
     }
 
     init(from decoder: Decoder) throws {
@@ -82,6 +110,7 @@ struct LimitLensConfiguration: Codable, Equatable {
         self.setup = try container.decodeIfPresent(SetupConfiguration.self, forKey: .setup) ?? SetupConfiguration()
         self.refresh = try container.decodeIfPresent(RefreshConfiguration.self, forKey: .refresh) ?? RefreshConfiguration()
         self.notifications = try container.decodeIfPresent(NotificationConfiguration.self, forKey: .notifications) ?? NotificationConfiguration()
+        self.appearance = try container.decodeIfPresent(AppAppearance.self, forKey: .appearance) ?? .classic
     }
 
     static func detected(

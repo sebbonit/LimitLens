@@ -6,16 +6,86 @@ struct LimitLensPopover: View {
     @ObservedObject var viewModel: UsageViewModel
     @State private var selectedTab: ProviderTab = .overview
 
+    private var appearance: AppAppearance {
+        viewModel.configuration.appearance
+    }
+
     var body: some View {
+        Group {
+            switch appearance {
+            case .classic:
+                classicLayout
+            case .studio:
+                sidebarLayout
+            case .terminal:
+                sidebarLayout
+                    .environment(\.colorScheme, .dark)
+                    .foregroundStyle(Color(red: 0.76, green: 1, blue: 0.79))
+            }
+        }
+        .environment(\.appAppearance, appearance)
+        .fontDesign(appearance == .terminal ? .monospaced : .default)
+        .tint(appearance.accentColor)
+        .preferredColorScheme(appearance.preferredColorScheme)
+        .frame(width: appearance.popoverWidth)
+        .background(appearance.windowBackground)
+        .onAppear(perform: prepareSetupView)
+    }
+
+    private var classicLayout: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
             tabBar
             contentView
             footer
         }
-        .padding(12)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .onAppear(perform: prepareSetupView)
+        .padding(appearance.outerPadding)
+    }
+
+    private var sidebarLayout: some View {
+        HStack(alignment: .top, spacing: appearance == .studio ? 14 : 8) {
+            sideNavigation
+
+            VStack(alignment: .leading, spacing: appearance == .studio ? 12 : 8) {
+                workspaceHeader
+                contentView
+                footer
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(appearance.outerPadding)
+    }
+
+    private var workspaceHeader: some View {
+        HStack(spacing: 8) {
+            if appearance == .studio {
+                Text("LIMITLENS / LIVE WORKSPACE")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.1)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("$")
+                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .foregroundStyle(.green)
+                Text("limitlens --view \(selectedTab.rawValue)")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.green.opacity(0.72))
+            }
+            Spacer()
+            Button {
+                Task { await viewModel.refresh() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: appearance == .terminal ? 1 : 8)
+                            .fill(appearance.accentColor.opacity(0.10))
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Refresh all providers")
+        }
     }
 
     private var header: some View {
@@ -130,6 +200,78 @@ struct LimitLensPopover: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(Color.primary.opacity(0.05), lineWidth: 0.5)
         )
+    }
+
+    private var sideNavigation: some View {
+        VStack(alignment: appearance == .terminal ? .center : .leading, spacing: 8) {
+            if appearance == .studio {
+                HStack(spacing: 8) {
+                    LimitLensMark()
+                        .frame(width: 26, height: 26)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("LimitLens")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Workspace")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 5)
+                .padding(.bottom, 5)
+            } else {
+                LimitLensMark()
+                    .frame(width: 24, height: 24)
+                    .padding(.bottom, 4)
+            }
+
+            ForEach(viewModel.visibleTabs) { tab in
+                sideNavigationButton(for: tab)
+            }
+
+            Divider()
+                .padding(.vertical, 2)
+
+            sideNavigationButton(for: .settings)
+        }
+        .padding(appearance == .terminal ? 6 : 8)
+        .frame(width: appearance == .terminal ? 48 : 144, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(
+            RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
+                .fill(appearance.panelBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
+                .stroke(appearance.accentColor.opacity(appearance == .terminal ? 0.30 : 0.10), lineWidth: appearance == .terminal ? 1 : 0.5)
+        )
+    }
+
+    private func sideNavigationButton(for tab: ProviderTab) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            selectedTab = tab
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: providerIcon(tab.systemImage, hidesProviderNames: viewModel.hidesProviderNames))
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 18, height: 18)
+                if appearance == .studio {
+                    Text(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(isSelected ? appearance.accentColor : Color.secondary)
+            .padding(.horizontal, appearance == .terminal ? 4 : 7)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: appearance == .terminal ? .center : .leading)
+            .background(
+                RoundedRectangle(cornerRadius: appearance == .terminal ? 1 : 8)
+                    .fill(isSelected ? appearance.accentColor.opacity(0.13) : .clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
     }
 
     private func tabButton(for tab: ProviderTab) -> some View {

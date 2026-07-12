@@ -14,6 +14,7 @@ struct SettingsSectionView: View {
     @State private var collapsedSections: Set<String> = ["diagnostics"]
     @State private var showClearExhaustionConfirmation = false
     @State private var didClearExhaustionHistory = false
+    @Environment(\.appAppearance) private var appearance
 
     var body: some View {
         ScrollView {
@@ -22,6 +23,14 @@ struct SettingsSectionView: View {
                     firstLaunchSetupView
                 }
 
+                collapsibleSection(
+                    "appearance",
+                    title: "Appearance",
+                    systemImage: "paintbrush",
+                    detail: viewModel.configuration.appearance.displayName
+                ) {
+                    appearanceContent
+                }
                 collapsibleSection("providers", title: "Providers", systemImage: "checkmark.circle", detail: "\(enabledProviderCount) of \(ProviderTab.providerCases.count) enabled") {
                     providersContent
                 }
@@ -63,40 +72,90 @@ struct SettingsSectionView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         let isCollapsed = collapsedSections.contains(id)
-        SectionBlock {
+        switch appearance {
+        case .classic:
+            SectionBlock {
+                VStack(alignment: .leading, spacing: isCollapsed ? 0 : 10) {
+                    settingsSectionButton(id, title: title, systemImage: systemImage, detail: detail, isCollapsed: isCollapsed)
+                    if !isCollapsed { content() }
+                }
+            }
+        case .studio:
+            VStack(alignment: .leading, spacing: isCollapsed ? 0 : 10) {
+                settingsSectionButton(id, title: title, systemImage: systemImage, detail: detail, isCollapsed: isCollapsed)
+                if !isCollapsed { content() }
+            }
+            .padding(14)
+            .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.indigo.opacity(0.10), lineWidth: 1)
+            )
+            .shadow(color: Color.indigo.opacity(0.065), radius: 8, y: 3)
+        case .terminal:
             VStack(alignment: .leading, spacing: isCollapsed ? 0 : 10) {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        toggleSection(id)
-                    }
+                    withAnimation(.easeInOut(duration: 0.12)) { toggleSection(id) }
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: systemImage)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, height: 20)
-                            .background(Circle().fill(Color.secondary.opacity(0.10)))
-                        Text(title)
-                            .font(.subheadline.weight(.semibold))
+                        Text(isCollapsed ? ">" : "v")
+                            .foregroundStyle(Color.green)
+                        Text("[\(title.uppercased())]")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color(red: 0.76, green: 1, blue: 0.79))
                         Spacer()
                         if let detail {
-                            Text(detail)
-                                .font(.caption2)
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
+                            Text(detail.uppercased())
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundStyle(Color.green.opacity(0.64))
                         }
-                        Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(.plain)
+                if !isCollapsed { content() }
+            }
+            .padding(11)
+            .background(Color.black.opacity(0.25))
+            .overlay(Rectangle().stroke(Color.green.opacity(0.30), lineWidth: 1))
+        }
+    }
 
-                if !isCollapsed {
-                    content()
+    private func settingsSectionButton(
+        _ id: String,
+        title: String,
+        systemImage: String,
+        detail: String?,
+        isCollapsed: Bool
+    ) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                toggleSection(id)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: appearance == .studio ? 13 : 11, weight: .semibold))
+                    .foregroundStyle(appearance == .studio ? appearance.accentColor : Color.secondary)
+                    .frame(width: appearance == .studio ? 30 : 20, height: appearance == .studio ? 30 : 20)
+                    .background(
+                        RoundedRectangle(cornerRadius: appearance == .studio ? 9 : 10)
+                            .fill((appearance == .studio ? appearance.accentColor : Color.secondary).opacity(0.10))
+                    )
+                Text(title)
+                    .font(appearance == .studio ? .headline : .subheadline.weight(.semibold))
+                Spacer()
+                if let detail {
+                    Text(detail)
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                 }
+                Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
         }
+        .buttonStyle(.plain)
     }
 
     private func toggleSection(_ id: String) {
@@ -105,6 +164,112 @@ struct SettingsSectionView: View {
         } else {
             collapsedSections.insert(id)
         }
+    }
+
+    // MARK: - Appearance
+
+    private var appearanceContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Each mode changes navigation, density, typography, surfaces and color treatment.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(AppAppearance.allCases) { appearance in
+                    appearanceOption(appearance)
+                }
+            }
+        }
+    }
+
+    private func appearanceOption(_ appearance: AppAppearance) -> some View {
+        let isSelected = viewModel.configuration.appearance == appearance
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.updateConfiguration { $0.appearance = appearance }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                appearancePreview(appearance)
+
+                HStack(spacing: 4) {
+                    Text(appearance.displayName)
+                        .font(.caption.weight(.semibold))
+                    Spacer(minLength: 2)
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                }
+
+                Text(appearance.detail)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(7)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(
+                RoundedRectangle(cornerRadius: appearance == .terminal ? 2 : 9)
+                    .fill(isSelected ? appearance.accentColor.opacity(0.11) : Color.primary.opacity(0.025))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: appearance == .terminal ? 2 : 9)
+                    .stroke(isSelected ? appearance.accentColor.opacity(0.75) : Color.primary.opacity(0.08), lineWidth: isSelected ? 1.5 : 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func appearancePreview(_ appearance: AppAppearance) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: appearance == .terminal ? 1 : 6)
+                .fill(appearance == .terminal ? Color.black.opacity(0.88) : appearance.accentColor.opacity(0.07))
+
+            switch appearance {
+            case .classic:
+                VStack(spacing: 4) {
+                    HStack(spacing: 3) {
+                        ForEach(0..<4, id: \.self) { _ in
+                            Capsule().fill(Color.secondary.opacity(0.25)).frame(height: 4)
+                        }
+                    }
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.13))
+                }
+                .padding(7)
+            case .studio:
+                HStack(spacing: 5) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.indigo.opacity(0.22))
+                        .frame(width: 22)
+                    VStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 4).fill(Color.indigo.opacity(0.15))
+                        HStack(spacing: 3) {
+                            RoundedRectangle(cornerRadius: 3).fill(Color.indigo.opacity(0.12))
+                            RoundedRectangle(cornerRadius: 3).fill(Color.indigo.opacity(0.12))
+                        }
+                    }
+                }
+                .padding(6)
+            case .terminal:
+                HStack(spacing: 5) {
+                    VStack(spacing: 4) {
+                        ForEach(0..<4, id: \.self) { _ in
+                            Rectangle().fill(Color.green.opacity(0.55)).frame(width: 10, height: 3)
+                        }
+                    }
+                    Rectangle()
+                        .stroke(Color.green.opacity(0.42), lineWidth: 1)
+                }
+                .padding(7)
+            }
+        }
+        .frame(height: 48)
     }
 
     // MARK: - Providers

@@ -11,8 +11,21 @@ struct OverviewSectionView: View {
     var paceProjections: [ProviderTab: PaceProjection] = [:]
     var collectingPaceData: Set<ProviderTab> = []
     var exhaustionSummaries: [ExhaustionSpeedSummary] = []
+    @Environment(\.appAppearance) private var appearance
 
+    @ViewBuilder
     var body: some View {
+        switch appearance {
+        case .classic:
+            classicOverview
+        case .studio:
+            studioOverview
+        case .terminal:
+            terminalOverview
+        }
+    }
+
+    private var classicOverview: some View {
         SectionBlock {
             VStack(alignment: .leading, spacing: 9) {
                 SectionHeader(
@@ -49,6 +62,207 @@ struct OverviewSectionView: View {
 
                 exhaustionSpeedSection
             }
+        }
+    }
+
+    private var studioOverview: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Usage workspace")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                    Text(overviewDetail)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(billingSummaryDetail)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(appearance.accentColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(appearance.accentColor.opacity(0.09), in: Capsule())
+            }
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                spacing: 10
+            ) {
+                ForEach(summaries) { summary in
+                    studioProviderCard(summary)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 10) {
+                studioBillingPanel
+                studioHistoryPanel
+            }
+        }
+    }
+
+    private func studioProviderCard(_ summary: ProviderUsageSummary) -> some View {
+        Button {
+            onSelectTab(summary.tab)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: providerIcon(summary.tab.systemImage, hidesProviderNames: hidesProviderNames))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(severityColor(summary.severity))
+                        .frame(width: 32, height: 32)
+                        .background(severityColor(summary.severity).opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                }
+
+                Text(providerName(summary.tab.displayName, privateName: summary.tab.privateName, hidesProviderNames: hidesProviderNames))
+                    .font(.headline)
+                Text(providerSafeMessage(summary.detail, hidesProviderNames: hidesProviderNames))
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                Text(overviewSupportText(for: summary))
+                    .font(.caption2)
+                    .foregroundStyle(overviewSupportColor(for: summary))
+                    .lineLimit(2)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 142, alignment: .topLeading)
+            .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(severityColor(summary.severity).opacity(0.13), lineWidth: 1)
+            )
+            .shadow(color: Color.indigo.opacity(0.07), radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var studioBillingPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Renewals", systemImage: "calendar")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+            ForEach(billingExpiries) { entry in
+                billingExpiryCell(entry)
+            }
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(.white, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var studioHistoryPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Exhaustion history", systemImage: "bolt")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+            if exhaustionSummaries.isEmpty {
+                Text("No exhausted cycles yet")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(exhaustionSummaries) { entry in
+                    exhaustionSpeedRow(entry)
+                }
+            }
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(.white, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var terminalOverview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            terminalOverviewHeader
+
+            terminalRule("ACTIVE PROVIDERS")
+
+            ForEach(summaries) { summary in
+                terminalProviderRow(summary)
+            }
+
+            terminalRule("RENEWAL QUEUE")
+            terminalBillingGrid
+        }
+        .padding(12)
+        .background(Color.black.opacity(0.20))
+        .overlay(Rectangle().stroke(Color.green.opacity(0.34), lineWidth: 1))
+    }
+
+    private var terminalOverviewHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("SYSTEM OVERVIEW")
+                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color(red: 0.76, green: 1, blue: 0.79))
+            Spacer()
+            Text("STATUS: \(overviewDetail.uppercased())")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(.green)
+        }
+    }
+
+    private func terminalProviderRow(_ summary: ProviderUsageSummary) -> some View {
+        Button {
+            onSelectTab(summary.tab)
+        } label: {
+            HStack(spacing: 10) {
+                Text(terminalProviderIndex(summary.tab))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.green)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(providerName(summary.tab.displayName, privateName: summary.tab.privateName, hidesProviderNames: hidesProviderNames).uppercased())
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color(red: 0.76, green: 1, blue: 0.79))
+                    Text(overviewSupportText(for: summary).uppercased())
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(Color.green.opacity(0.58))
+                        .lineLimit(1)
+                }
+                Spacer()
+                Text(providerSafeMessage(summary.detail, hidesProviderNames: hidesProviderNames).uppercased())
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(severityColor(summary.severity))
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .background(Color.green.opacity(0.035))
+            .overlay(Rectangle().stroke(Color.green.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var terminalBillingGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+            ForEach(billingExpiries) { entry in
+                billingExpiryCell(entry)
+                    .padding(7)
+                    .background(Color.black.opacity(0.24))
+                    .overlay(Rectangle().stroke(Color.green.opacity(0.16), lineWidth: 1))
+            }
+        }
+    }
+
+    private func terminalProviderIndex(_ tab: ProviderTab) -> String {
+        switch tab {
+        case .codex: return "01"
+        case .cursor: return "02"
+        case .devin: return "03"
+        case .openCodeGo: return "04"
+        case .overview, .settings: return "00"
+        }
+    }
+
+    private func terminalRule(_ label: String) -> some View {
+        HStack(spacing: 8) {
+            Text("// \(label)")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.green.opacity(0.72))
+            Rectangle().fill(Color.green.opacity(0.24)).frame(height: 1)
         }
     }
 

@@ -2,20 +2,102 @@ import AppKit
 import LimitLensCore
 import SwiftUI
 
+private struct AppAppearanceKey: EnvironmentKey {
+    static let defaultValue: AppAppearance = .classic
+}
+
+extension EnvironmentValues {
+    var appAppearance: AppAppearance {
+        get { self[AppAppearanceKey.self] }
+        set { self[AppAppearanceKey.self] = newValue }
+    }
+}
+
+extension AppAppearance {
+    var popoverWidth: CGFloat {
+        switch self {
+        case .classic: return 460
+        case .studio: return 680
+        case .terminal: return 620
+        }
+    }
+
+    var outerPadding: CGFloat {
+        switch self {
+        case .classic: return 12
+        case .studio: return 16
+        case .terminal: return 8
+        }
+    }
+
+    var panelCornerRadius: CGFloat {
+        switch self {
+        case .classic: return 7
+        case .studio: return 15
+        case .terminal: return 2
+        }
+    }
+
+    var cardCornerRadius: CGFloat {
+        switch self {
+        case .classic: return 8
+        case .studio: return 12
+        case .terminal: return 1
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .classic: return .accentColor
+        case .studio: return .indigo
+        case .terminal: return .green
+        }
+    }
+
+    var preferredColorScheme: ColorScheme? {
+        self == .terminal ? .dark : nil
+    }
+
+    var windowBackground: Color {
+        switch self {
+        case .classic: return Color(nsColor: .windowBackgroundColor)
+        case .studio: return Color(red: 0.945, green: 0.95, blue: 0.975)
+        case .terminal: return Color(red: 0.025, green: 0.032, blue: 0.028)
+        }
+    }
+
+    var panelBackground: Color {
+        switch self {
+        case .classic: return Color(nsColor: .controlBackgroundColor)
+        case .studio: return .white
+        case .terminal: return Color(red: 0.035, green: 0.055, blue: 0.043)
+        }
+    }
+}
+
 struct SectionBlock<Content: View>: View {
     @ViewBuilder let content: Content
+    @Environment(\.appAppearance) private var appearance
 
     var body: some View {
         content
-            .padding(10)
+            .padding(appearance == .terminal ? 8 : 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
+                RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
+                    .fill(appearance.panelBackground)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
+                    .stroke(
+                        appearance == .terminal ? Color.green.opacity(0.26) : appearance.accentColor.opacity(0.10),
+                        lineWidth: appearance == .terminal ? 1 : 0.5
+                    )
+            )
+            .shadow(
+                color: appearance == .studio ? Color.indigo.opacity(0.08) : .clear,
+                radius: appearance == .studio ? 8 : 0,
+                y: appearance == .studio ? 3 : 0
             )
     }
 }
@@ -87,12 +169,25 @@ struct UsageCard: View {
     let leadingDetail: String?
     let trailingDetail: String?
     let tint: Color
+    @Environment(\.appAppearance) private var appearance
 
     private var clampedPercent: Double {
         min(max(percentUsed ?? 0, 0), 100)
     }
 
+    @ViewBuilder
     var body: some View {
+        switch appearance {
+        case .classic:
+            classicCard
+        case .studio:
+            studioCard
+        case .terminal:
+            terminalCard
+        }
+    }
+
+    private var classicCard: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(label)
@@ -141,6 +236,91 @@ struct UsageCard: View {
                 .stroke(Color.primary.opacity(0.07), lineWidth: 0.5)
         )
     }
+
+    private var studioCard: some View {
+        HStack(spacing: 13) {
+            ZStack {
+                Circle()
+                    .stroke(tint.opacity(0.12), lineWidth: 7)
+                Circle()
+                    .trim(from: 0, to: clampedPercent / 100)
+                    .stroke(tint, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Text(percentText(percentUsed))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+            }
+            .frame(width: 58, height: 58)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label.uppercased())
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(0.7)
+                    .foregroundStyle(tint)
+                if let leadingDetail {
+                    Text(leadingDetail)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                }
+                if let trailingDetail {
+                    Text(trailingDetail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(tint.opacity(0.055))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(tint.opacity(0.14), lineWidth: 1)
+        )
+    }
+
+    private var terminalCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("[\(label.uppercased())]")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.green)
+                Spacer()
+                Text(percentText(percentUsed))
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color(red: 0.72, green: 1, blue: 0.76))
+            }
+
+            HStack(spacing: 3) {
+                ForEach(0..<12, id: \.self) { index in
+                    Rectangle()
+                        .fill(Double(index) < clampedPercent / (100.0 / 12.0) ? Color.green : Color.green.opacity(0.14))
+                        .frame(height: 7)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 8) {
+                Text(leadingDetail ?? "NO RESET DATA")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let trailingDetail {
+                    Text(trailingDetail)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .foregroundStyle(Color(red: 0.60, green: 0.74, blue: 0.63))
+            .lineLimit(2)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, minHeight: 82, alignment: .topLeading)
+        .background(Color.black.opacity(0.26))
+        .overlay(Rectangle().stroke(Color.green.opacity(0.32), lineWidth: 1))
+    }
 }
 
 struct MetricTile: View {
@@ -148,14 +328,35 @@ struct MetricTile: View {
     let value: String
     var caption: String?
     var captionColor: Color = .secondary
+    @Environment(\.appAppearance) private var appearance
 
+    @ViewBuilder
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        switch appearance {
+        case .classic:
+            metricContent
+        case .studio:
+            metricContent
+                .padding(11)
+                .frame(maxWidth: .infinity, minHeight: 66, alignment: .topLeading)
+                .background(Color.indigo.opacity(0.055), in: RoundedRectangle(cornerRadius: 11))
+        case .terminal:
+            metricContent
+                .padding(9)
+                .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+                .foregroundStyle(Color(red: 0.76, green: 1, blue: 0.79))
+                .background(Color.black.opacity(0.22))
+                .overlay(Rectangle().stroke(Color.green.opacity(0.22), lineWidth: 1))
+        }
+    }
+
+    private var metricContent: some View {
+        VStack(alignment: .leading, spacing: appearance == .studio ? 5 : 3) {
             Text(title)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(appearance == .terminal ? .system(size: 9, weight: .bold, design: .monospaced) : .caption2.weight(.medium))
+                .foregroundStyle(appearance == .terminal ? Color.green.opacity(0.62) : Color.secondary)
             Text(value)
-                .font(.body.weight(.semibold))
+                .font(appearance == .studio ? .title3.weight(.bold) : .body.weight(.semibold))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -347,8 +548,21 @@ struct SectionHeader: View {
     var isRefreshing: Bool = false
     var lastUpdated: Date? = nil
     var onRefresh: (() -> Void)? = nil
+    @Environment(\.appAppearance) private var appearance
 
+    @ViewBuilder
     var body: some View {
+        switch appearance {
+        case .classic:
+            classicHeader
+        case .studio:
+            studioHeader
+        case .terminal:
+            terminalHeader
+        }
+    }
+
+    private var classicHeader: some View {
         HStack(spacing: 7) {
             Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
                 .font(.system(size: 11, weight: .semibold))
@@ -367,38 +581,92 @@ struct SectionHeader: View {
 
             Spacer(minLength: 4)
 
-            if let lastUpdated {
-                Text(lastUpdated.formatted(date: .omitted, time: .shortened))
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.tertiary)
-                    .help("Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))")
-            }
+            headerControls
+        }
+    }
 
-            if let dashboardURL {
-                Button {
-                    NSWorkspace.shared.open(dashboardURL)
-                } label: {
-                    Image(systemName: "arrow.up.right.square")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
-                .help("Open dashboard")
-            }
+    private var studioHeader: some View {
+        HStack(spacing: 11) {
+            Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(appearance.accentColor)
+                .frame(width: 34, height: 34)
+                .background(appearance.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
 
-            if let onRefresh {
-                Button(action: onRefresh) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 10, weight: .semibold))
-                        .rotationEffect(.degrees(isRefreshing ? 360 : 0))
-                        .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
-                .disabled(isRefreshing)
-                .help("Refresh")
             }
+            Spacer(minLength: 8)
+            headerControls
+        }
+        .padding(.bottom, 2)
+    }
+
+    private var terminalHeader: some View {
+        HStack(spacing: 9) {
+            Text("::")
+                .font(.system(size: 15, weight: .black, design: .monospaced))
+                .foregroundStyle(Color.green)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title.uppercased())
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color(red: 0.76, green: 1, blue: 0.79))
+                if let detail, !detail.isEmpty {
+                    Text(detail.uppercased())
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.green.opacity(0.62))
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            headerControls
+        }
+        .padding(.bottom, 3)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.green.opacity(0.28)).frame(height: 1)
+        }
+    }
+
+    @ViewBuilder
+    private var headerControls: some View {
+        if let lastUpdated {
+            Text(lastUpdated.formatted(date: .omitted, time: .shortened))
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(appearance == .terminal ? Color.green.opacity(0.65) : Color.secondary)
+                .help("Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))")
+        }
+
+        if let dashboardURL {
+            Button {
+                NSWorkspace.shared.open(dashboardURL)
+            } label: {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(appearance == .terminal ? Color.green : Color.secondary)
+            .help("Open dashboard")
+        }
+
+        if let onRefresh {
+            Button(action: onRefresh) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 10, weight: .semibold))
+                    .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                    .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(appearance == .terminal ? Color.green : Color.secondary)
+            .disabled(isRefreshing)
+            .help("Refresh")
         }
     }
 }

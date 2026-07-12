@@ -13,7 +13,6 @@ struct LimitLensApp: App {
     var body: some Scene {
         MenuBarExtra {
             LimitLensPopover(viewModel: viewModel)
-                .frame(width: 460)
         } label: {
             MenuBarStatusLabel(status: viewModel.menuBarStatus)
                 .task {

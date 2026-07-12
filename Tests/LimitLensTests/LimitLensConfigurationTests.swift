@@ -77,6 +77,7 @@ struct LimitLensConfigurationTests {
         store.configuration.providers.codex.isEnabled = false
         store.configuration.providers.cursor.stateDatabasePath = "/tmp/cursor-state.vscdb"
         store.configuration.privacy.menuBarDisplay = .hidden
+        store.configuration.appearance = .terminal
         store.save()
 
         let reloaded = LimitLensConfigurationStore(url: url)
@@ -85,6 +86,7 @@ struct LimitLensConfigurationTests {
         #expect(reloaded.configuration.providers.cursor.stateDatabasePath == "/tmp/cursor-state.vscdb")
         #expect(reloaded.configuration.privacy.menuBarDisplay == .hidden)
         #expect(reloaded.configuration.privacy.hidesProviderNames == true)
+        #expect(reloaded.configuration.appearance == .terminal)
     }
 
     @Test("Legacy config defaults setup to dismissed")
@@ -96,6 +98,7 @@ struct LimitLensConfigurationTests {
         let store = LimitLensConfigurationStore(url: url)
 
         #expect(store.configuration.setup.showsFirstLaunchSetup == false)
+        #expect(store.configuration.appearance == .classic)
     }
 
     @Test("Legacy hidesProviderNames config migrates to menuBarDisplay")
