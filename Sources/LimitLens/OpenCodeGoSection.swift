@@ -52,7 +52,7 @@ struct OpenCodeGoSectionView: View {
     }
 
     private func openCodeGoUsageView(_ snapshot: OpenCodeGoUsageSnapshot) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             if let rolling = snapshot.rolling {
                 openCodeGoUsageBar(title: "Rolling", window: rolling, tint: .mint)
             }
