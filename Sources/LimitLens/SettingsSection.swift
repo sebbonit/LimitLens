@@ -11,7 +11,15 @@ struct SettingsSectionView: View {
     @State private var openCodeGoSetupMessageIsError = false
     @State private var didLoadConfig = false
     @State private var expandedProvider: ProviderTab?
-    @State private var collapsedSections: Set<String> = ["diagnostics"]
+    @State private var collapsedSections: Set<String> = [
+        "appearance",
+        "providers",
+        "opencodego",
+        "menubar",
+        "refresh",
+        "notifications",
+        "diagnostics"
+    ]
     @State private var showClearExhaustionConfirmation = false
     @State private var didClearExhaustionHistory = false
     @Environment(\.appAppearance) private var appearance
