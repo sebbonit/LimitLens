@@ -1,13 +1,17 @@
-# LimitLens — AI Coding Usage Tracker for macOS
+<p align="center">
+  <img src="Resources/LimitLensIcon.png" width="160" height="160" alt="LimitLens logo">
+</p>
+
+<h1 align="center">LimitLens — AI Coding Usage Tracker for macOS</h1>
 
 > **Track your AI coding assistant usage and quotas in the macOS menu bar.** LimitLens is a native, lightweight macOS menu bar app that monitors usage limits, reset windows, billing cycles, and renewal dates for Codex, Cursor, Devin, and OpenCode Go — all in one glance.
 
 [![Swift 6.0](https://img.shields.io/badge/swift-6.0-orange.svg)](https://swift.org)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue.svg)](https://apple.com/macos)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests: 104](https://img.shields.io/badge/tests-104-brightgreen.svg)](#testing)
+[![Tests: 185](https://img.shields.io/badge/tests-185-brightgreen.svg)](#testing)
 
-![LimitLens popover overview showing AI coding usage for Codex, Cursor, Devin, and OpenCode Go with progress bars, billing info, and pace projections](docs/screenshots/popover-overview.png)
+![LimitLens Classic, Studio, and Terminal interfaces showing AI coding usage for Codex, Cursor, Devin, and OpenCode Go](docs/screenshots/limitlens-themes.png)
 
 ---
 
