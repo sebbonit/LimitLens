@@ -12,6 +12,7 @@ struct OverviewSectionView: View {
     var collectingPaceData: Set<ProviderTab> = []
     var exhaustionSummaries: [ExhaustionSpeedSummary] = []
     @Environment(\.appAppearance) private var appearance
+    @Environment(\.colorScheme) private var colorScheme
 
     @ViewBuilder
     var body: some View {
@@ -130,12 +131,12 @@ struct OverviewSectionView: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 142, alignment: .topLeading)
-            .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(appearance.cardBackground(for: colorScheme), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(severityColor(summary.severity).opacity(0.13), lineWidth: 1)
             )
-            .shadow(color: Color.indigo.opacity(0.07), radius: 8, y: 4)
+            .shadow(color: appearance.studioShadowColor(for: colorScheme), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -151,7 +152,7 @@ struct OverviewSectionView: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(.white, in: RoundedRectangle(cornerRadius: 14))
+        .background(appearance.cardBackground(for: colorScheme), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var studioHistoryPanel: some View {
@@ -171,7 +172,7 @@ struct OverviewSectionView: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(.white, in: RoundedRectangle(cornerRadius: 14))
+        .background(appearance.cardBackground(for: colorScheme), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var terminalOverview: some View {

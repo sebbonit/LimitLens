@@ -23,6 +23,7 @@ struct SettingsSectionView: View {
     @State private var showClearExhaustionConfirmation = false
     @State private var didClearExhaustionHistory = false
     @Environment(\.appAppearance) private var appearance
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ScrollView {
@@ -94,12 +95,12 @@ struct SettingsSectionView: View {
                 if !isCollapsed { content() }
             }
             .padding(14)
-            .background(.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(appearance.cardBackground(for: colorScheme), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color.indigo.opacity(0.10), lineWidth: 1)
             )
-            .shadow(color: Color.indigo.opacity(0.065), radius: 8, y: 3)
+            .shadow(color: appearance.studioShadowColor(for: colorScheme), radius: 8, y: 3)
         case .terminal:
             VStack(alignment: .leading, spacing: isCollapsed ? 0 : 10) {
                 Button {

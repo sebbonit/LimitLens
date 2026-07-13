@@ -58,19 +58,58 @@ extension AppAppearance {
         self == .terminal ? .dark : nil
     }
 
-    var windowBackground: Color {
+    func windowBackground(for colorScheme: ColorScheme) -> Color {
         switch self {
-        case .classic: return Color(nsColor: .windowBackgroundColor)
-        case .studio: return Color(red: 0.945, green: 0.95, blue: 0.975)
-        case .terminal: return Color(red: 0.025, green: 0.032, blue: 0.028)
+        case .classic:
+            return Color(nsColor: .windowBackgroundColor)
+        case .studio:
+            switch colorScheme {
+            case .dark:
+                return Color(red: 0.09, green: 0.095, blue: 0.14)
+            default:
+                return Color(red: 0.945, green: 0.95, blue: 0.975)
+            }
+        case .terminal:
+            return Color(red: 0.025, green: 0.032, blue: 0.028)
         }
     }
 
-    var panelBackground: Color {
+    func panelBackground(for colorScheme: ColorScheme) -> Color {
         switch self {
-        case .classic: return Color(nsColor: .controlBackgroundColor)
-        case .studio: return .white
-        case .terminal: return Color(red: 0.035, green: 0.055, blue: 0.043)
+        case .classic:
+            return Color(nsColor: .controlBackgroundColor)
+        case .studio:
+            switch colorScheme {
+            case .dark:
+                return Color(red: 0.12, green: 0.125, blue: 0.18)
+            default:
+                return .white
+            }
+        case .terminal:
+            return Color(red: 0.035, green: 0.055, blue: 0.043)
+        }
+    }
+
+    func cardBackground(for colorScheme: ColorScheme) -> Color {
+        switch self {
+        case .studio:
+            switch colorScheme {
+            case .dark:
+                return Color(red: 0.15, green: 0.155, blue: 0.22)
+            default:
+                return .white
+            }
+        default:
+            return panelBackground(for: colorScheme)
+        }
+    }
+
+    func studioShadowColor(for colorScheme: ColorScheme) -> Color {
+        switch colorScheme {
+        case .dark:
+            return Color.black.opacity(0.28)
+        default:
+            return Color.indigo.opacity(0.08)
         }
     }
 }
@@ -78,6 +117,7 @@ extension AppAppearance {
 struct SectionBlock<Content: View>: View {
     @ViewBuilder let content: Content
     @Environment(\.appAppearance) private var appearance
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         content
@@ -85,7 +125,7 @@ struct SectionBlock<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
-                    .fill(appearance.panelBackground)
+                    .fill(appearance.panelBackground(for: colorScheme))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
@@ -95,7 +135,7 @@ struct SectionBlock<Content: View>: View {
                     )
             )
             .shadow(
-                color: appearance == .studio ? Color.indigo.opacity(0.08) : .clear,
+                color: appearance == .studio ? appearance.studioShadowColor(for: colorScheme) : .clear,
                 radius: appearance == .studio ? 8 : 0,
                 y: appearance == .studio ? 3 : 0
             )

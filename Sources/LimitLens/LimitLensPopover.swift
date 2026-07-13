@@ -5,6 +5,7 @@ import SwiftUI
 struct LimitLensPopover: View {
     @ObservedObject var viewModel: UsageViewModel
     @State private var selectedTab: ProviderTab = .overview
+    @Environment(\.colorScheme) private var colorScheme
 
     private var appearance: AppAppearance {
         viewModel.configuration.appearance
@@ -28,7 +29,7 @@ struct LimitLensPopover: View {
         .tint(appearance.accentColor)
         .preferredColorScheme(appearance.preferredColorScheme)
         .frame(width: appearance.popoverWidth)
-        .background(appearance.windowBackground)
+        .background(appearance.windowBackground(for: colorScheme))
         .onAppear(perform: prepareSetupView)
     }
 
@@ -238,7 +239,7 @@ struct LimitLensPopover: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
-                .fill(appearance.panelBackground)
+                .fill(appearance.panelBackground(for: colorScheme))
         )
         .overlay(
             RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
