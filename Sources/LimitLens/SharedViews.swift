@@ -154,6 +154,21 @@ extension NSScroller {
 struct DailyUsageChart: View {
     let buckets: [AccountTokenUsageDailyBucket]
 
+    private static let isoDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let tooltipDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
     private var displayedBuckets: [AccountTokenUsageDailyBucket] {
         Array(buckets.sorted { $0.startDate < $1.startDate }.suffix(14))
     }
@@ -175,17 +190,23 @@ struct DailyUsageChart: View {
 
             HStack(alignment: .bottom, spacing: 4) {
                 ForEach(Array(displayedBuckets.enumerated()), id: \.offset) { _, bucket in
-                    VStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(Color.accentColor.opacity(0.78))
-                            .frame(height: barHeight(for: bucket.tokens))
-                        Text(dayLabel(bucket.startDate))
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
+                    Button {
+                    } label: {
+                        VStack(spacing: 4) {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(Color.accentColor.opacity(0.78))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: barHeight(for: bucket.tokens))
+                            Text(dayLabel(bucket.startDate))
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 54, alignment: .bottom)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .bottom)
-                    .help("\(UsageFormatting.compactNumber(bucket.tokens)) tokens")
+                    .buttonStyle(.plain)
+                    .help(tooltipText(for: bucket))
                 }
             }
             .frame(height: 62)
@@ -200,6 +221,14 @@ struct DailyUsageChart: View {
     private func dayLabel(_ startDate: String) -> String {
         guard let day = startDate.split(separator: "-").last else { return startDate }
         return String(day)
+    }
+
+    private func tooltipText(for bucket: AccountTokenUsageDailyBucket) -> String {
+        let count = UsageFormatting.compactNumber(bucket.tokens)
+        guard let date = Self.isoDayFormatter.date(from: bucket.startDate) else {
+            return "\(count) tokens"
+        }
+        return "\(Self.tooltipDayFormatter.string(from: date)) · \(count) tokens"
     }
 }
 
