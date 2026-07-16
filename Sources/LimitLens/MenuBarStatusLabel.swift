@@ -10,25 +10,35 @@ struct MenuBarStatusLabel: View {
     private static let tickInterval: TimeInterval = 1.0 / 30.0
     private static let fillCycleDuration: TimeInterval = 1.4
 
-    private let tick = Timer.publish(every: tickInterval, on: .main, in: .common).autoconnect()
-
     var body: some View {
-        Image(nsImage: MenuBarStatusImageRenderer.image(for: status, animationPhase: animationPhase))
+        let imageSize = MenuBarStatusImageRenderer.size(for: status)
+
+        Image(nsImage: MenuBarStatusImageRenderer.image(
+            for: status,
+            animationPhase: animationPhase,
+            size: imageSize
+        ))
             .renderingMode(.original)
             .interpolation(.high)
             .frame(
-                width: MenuBarStatusImageRenderer.size(for: status).width,
-                height: MenuBarStatusImageRenderer.size(for: status).height
+                width: imageSize.width,
+                height: imageSize.height
             )
             .help(status.helpText)
             .accessibilityLabel(status.accessibilityLabel)
-            .onReceive(tick) { _ in
-                guard status.isRefreshing else {
-                    if animationPhase != 0 { animationPhase = 0 }
-                    return
+            .task(id: status.isRefreshing) {
+                animationPhase = 0
+                guard status.isRefreshing else { return }
+
+                while !Task.isCancelled {
+                    do {
+                        try await Task.sleep(for: .seconds(Self.tickInterval))
+                    } catch {
+                        return
+                    }
+                    let step = CGFloat(Self.tickInterval / Self.fillCycleDuration)
+                    animationPhase = (animationPhase + step).truncatingRemainder(dividingBy: 1)
                 }
-                let step = CGFloat(Self.tickInterval / Self.fillCycleDuration)
-                animationPhase = (animationPhase + step).truncatingRemainder(dividingBy: 1)
             }
     }
 }

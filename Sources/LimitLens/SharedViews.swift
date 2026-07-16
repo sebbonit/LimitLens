@@ -212,6 +212,9 @@ extension NSScroller {
 
 struct DailyUsageChart: View {
     let buckets: [AccountTokenUsageDailyBucket]
+    @State private var hoveredBucketIndex: Int?
+    @Environment(\.appAppearance) private var appearance
+    @Environment(\.colorScheme) private var colorScheme
 
     private static let isoDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -247,29 +250,103 @@ struct DailyUsageChart: View {
                     .foregroundStyle(.secondary)
             }
 
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(Array(displayedBuckets.enumerated()), id: \.offset) { _, bucket in
-                    Button {
-                    } label: {
-                        VStack(spacing: 4) {
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(Color.accentColor.opacity(0.78))
-                                .frame(maxWidth: .infinity)
-                                .frame(height: barHeight(for: bucket.tokens))
-                            Text(dayLabel(bucket.startDate))
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(1)
+            GeometryReader { geometry in
+                ZStack(alignment: .bottom) {
+                    HStack(alignment: .bottom, spacing: 4) {
+                        ForEach(Array(displayedBuckets.enumerated()), id: \.offset) { index, bucket in
+                            VStack(spacing: 4) {
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(Color.accentColor.opacity(barOpacity(at: index)))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: barHeight(for: bucket.tokens))
+                                    .shadow(
+                                        color: hoveredBucketIndex == index ? Color.accentColor.opacity(0.28) : .clear,
+                                        radius: 3,
+                                        y: 1
+                                    )
+                                Text(dayLabel(bucket.startDate))
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(hoveredBucketIndex == index ? Color.primary : Color.secondary.opacity(0.62))
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 54, alignment: .bottom)
+                            .contentShape(Rectangle())
+                            .scaleEffect(
+                                x: hoveredBucketIndex == index ? 1.035 : 1,
+                                y: hoveredBucketIndex == index ? 1.04 : 1,
+                                anchor: .bottom
+                            )
+                            .onHover { isHovered in
+                                if isHovered {
+                                    hoveredBucketIndex = index
+                                } else if hoveredBucketIndex == index {
+                                    hoveredBucketIndex = nil
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(tooltipText(for: bucket))
                         }
-                        .frame(maxWidth: .infinity, minHeight: 54, alignment: .bottom)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .help(tooltipText(for: bucket))
+                    .frame(height: 62)
+
+                    if let hoveredBucketIndex,
+                       displayedBuckets.indices.contains(hoveredBucketIndex) {
+                        hoverTooltip(for: displayedBuckets[hoveredBucketIndex])
+                            .position(
+                                x: tooltipX(
+                                    for: hoveredBucketIndex,
+                                    chartWidth: geometry.size.width
+                                ),
+                                y: 15
+                            )
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                            .zIndex(1)
+                    }
                 }
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height,
+                    alignment: .bottom
+                )
             }
-            .frame(height: 62)
+            .frame(height: 94)
+            .animation(.easeOut(duration: 0.08), value: hoveredBucketIndex)
         }
+    }
+
+    private func hoverTooltip(for bucket: AccountTokenUsageDailyBucket) -> some View {
+        HStack(spacing: 6) {
+            Text(tooltipDateText(for: bucket))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Circle()
+                .fill(Color.accentColor.opacity(0.65))
+                .frame(width: 4, height: 4)
+
+            Text(UsageFormatting.compactNumber(bucket.tokens))
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Color.accentColor)
+
+            Text("tokens")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .lineLimit(1)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .frame(width: 202)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(appearance.cardBackground(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.24), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.14), radius: 6, y: 2)
+        .allowsHitTesting(false)
     }
 
     private func barHeight(for tokens: Int64) -> CGFloat {
@@ -282,12 +359,31 @@ struct DailyUsageChart: View {
         return String(day)
     }
 
+    private func barOpacity(at index: Int) -> Double {
+        guard let hoveredBucketIndex else { return 0.78 }
+        return hoveredBucketIndex == index ? 0.98 : 0.38
+    }
+
+    private func tooltipX(for index: Int, chartWidth: CGFloat) -> CGFloat {
+        let tooltipHalfWidth: CGFloat = 101
+        guard chartWidth > tooltipHalfWidth * 2, !displayedBuckets.isEmpty else {
+            return chartWidth / 2
+        }
+
+        let barCenter = chartWidth * (CGFloat(index) + 0.5) / CGFloat(displayedBuckets.count)
+        return min(max(barCenter, tooltipHalfWidth), chartWidth - tooltipHalfWidth)
+    }
+
+    private func tooltipDateText(for bucket: AccountTokenUsageDailyBucket) -> String {
+        guard let date = Self.isoDayFormatter.date(from: bucket.startDate) else {
+            return bucket.startDate
+        }
+        return Self.tooltipDayFormatter.string(from: date)
+    }
+
     private func tooltipText(for bucket: AccountTokenUsageDailyBucket) -> String {
         let count = UsageFormatting.compactNumber(bucket.tokens)
-        guard let date = Self.isoDayFormatter.date(from: bucket.startDate) else {
-            return "\(count) tokens"
-        }
-        return "\(Self.tooltipDayFormatter.string(from: date)) · \(count) tokens"
+        return "\(tooltipDateText(for: bucket)) · \(count) tokens"
     }
 }
 

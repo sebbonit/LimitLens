@@ -24,8 +24,12 @@ enum MenuBarStatusImageRenderer {
         return NSSize(width: width, height: height)
     }
 
-    static func image(for status: MenuBarStatusSnapshot, animationPhase: CGFloat = 0) -> NSImage {
-        let size = size(for: status)
+    static func image(
+        for status: MenuBarStatusSnapshot,
+        animationPhase: CGFloat = 0,
+        size: NSSize? = nil
+    ) -> NSImage {
+        let size = size ?? self.size(for: status)
         let image = NSImage(size: size)
         image.isTemplate = false
         image.lockFocus()

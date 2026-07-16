@@ -154,6 +154,30 @@ struct RefreshConfigTests {
         #expect(viewModel.lastErrors[.codex] == nil)
     }
 
+    @Test("Devin refresh timeout clears refreshing state and allows retry")
+    func devinRefreshTimeoutClearsRefreshingState() async {
+        let devin = HangingDesktopQuotaClient()
+        let viewModel = makeViewModel(desktopQuota: devin)
+        viewModel.providerRefreshTimeoutSeconds = 0.2
+
+        await viewModel.refreshProvider(.devin)
+
+        #expect(viewModel.isProviderRefreshing(.devin) == false)
+        if case .failed(let message) = viewModel.currentLoadState(for: .devin) {
+            #expect(message == "Devin refresh timed out.")
+        } else {
+            Issue.record("Expected failed state after Devin refresh timeout")
+        }
+
+        viewModel.providerRefreshTimeoutSeconds = 0.2
+        let successViewModel = makeViewModel(
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80)]))
+        )
+        successViewModel.providerRefreshTimeoutSeconds = 0.2
+        await successViewModel.refreshProvider(.devin)
+        #expect(successViewModel.currentLoadState(for: .devin) == .loaded)
+    }
+
     private func makeViewModel(
         configuration: LimitLensConfiguration = {
             var config = LimitLensConfiguration.defaults
@@ -172,6 +196,16 @@ struct RefreshConfigTests {
             desktopQuotaService: desktopQuota,
             openCodeGoService: openCodeGo
         )
+    }
+}
+
+private final class HangingDesktopQuotaClient: DesktopQuotaFetching, @unchecked Sendable {
+    var callCount = 0
+
+    func fetchSnapshots() async throws -> [DesktopQuotaSnapshot] {
+        callCount += 1
+        try await Task.sleep(for: .seconds(60))
+        return []
     }
 }
 

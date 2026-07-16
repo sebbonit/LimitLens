@@ -27,33 +27,37 @@ public final class DesktopQuotaClient: DesktopQuotaFetching, @unchecked Sendable
     }
 
     public func fetchSnapshots() async throws -> [DesktopQuotaSnapshot] {
-        if let remoteSnapshot = try? await DevinRemoteQuotaClient(databasePath: liveDatabasePath).fetchSnapshot() {
-            return [remoteSnapshot]
-        }
-        try Task.checkCancellation()
+        let sources = self.sources
+        let liveDatabasePath = self.liveDatabasePath
+        return try await Task.detached(priority: .utility) {
+            if let remoteSnapshot = try? await DevinRemoteQuotaClient(databasePath: liveDatabasePath).fetchSnapshot() {
+                return [remoteSnapshot]
+            }
+            try Task.checkCancellation()
 
-        if let liveSnapshot = try? await DevinLanguageServerQuotaClient(databasePath: liveDatabasePath).fetchSnapshot() {
-            return [liveSnapshot]
-        }
-        try Task.checkCancellation()
+            if let liveSnapshot = try? await DevinLanguageServerQuotaClient(databasePath: liveDatabasePath).fetchSnapshot() {
+                return [liveSnapshot]
+            }
+            try Task.checkCancellation()
 
-        return try sources.compactMap { source -> DesktopQuotaSnapshot? in
-            guard FileManager.default.fileExists(atPath: source.databasePath) else {
-                return nil
+            return try sources.compactMap { source -> DesktopQuotaSnapshot? in
+                guard FileManager.default.fileExists(atPath: source.databasePath) else {
+                    return nil
+                }
+                guard let raw = try source.firstPlanInfoJSON() else {
+                    return nil
+                }
+                guard let data = raw.data(using: .utf8) else {
+                    return nil
+                }
+                if let authStatus = try? JSONDecoder().decode(DesktopQuotaAuthStatus.self, from: data),
+                   let snapshot = authStatus.snapshot(appName: source.appName, isStaleFallback: true) {
+                    return snapshot
+                }
+                let plan = try JSONDecoder().decode(DesktopQuotaPlanInfo.self, from: data)
+                return plan.snapshot(appName: source.appName, isStaleFallback: true)
             }
-            guard let raw = try source.firstPlanInfoJSON() else {
-                return nil
-            }
-            guard let data = raw.data(using: .utf8) else {
-                return nil
-            }
-            if let authStatus = try? JSONDecoder().decode(DesktopQuotaAuthStatus.self, from: data),
-               let snapshot = authStatus.snapshot(appName: source.appName, isStaleFallback: true) {
-                return snapshot
-            }
-            let plan = try JSONDecoder().decode(DesktopQuotaPlanInfo.self, from: data)
-            return plan.snapshot(appName: source.appName, isStaleFallback: true)
-        }
+        }.value
     }
 }
 
@@ -218,8 +222,12 @@ private struct DevinLanguageServerProcess {
             }
         }
 
-        guard let path = newest?.path,
-              let contents = try? String(contentsOfFile: path, encoding: .utf8) else {
+        guard let path = newest?.path else {
+            return nil
+        }
+
+        let contents = tailOfFile(at: path, maxBytes: 64_000)
+        guard !contents.isEmpty else {
             return nil
         }
 
@@ -246,7 +254,11 @@ private struct DevinLanguageServerProcess {
         return ports.min()
     }
 
-    private static func shellOutput(_ executable: String, _ arguments: [String]) -> String {
+    private static func shellOutput(
+        _ executable: String,
+        _ arguments: [String],
+        timeoutSeconds: TimeInterval = 3
+    ) -> String {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -256,8 +268,33 @@ private struct DevinLanguageServerProcess {
         guard (try? process.run()) != nil else {
             return ""
         }
-        process.waitUntilExit()
+
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        if process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+            return ""
+        }
+
         return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    }
+
+    private static func tailOfFile(at path: String, maxBytes: Int) -> String {
+        guard let handle = FileHandle(forReadingAtPath: path) else {
+            return ""
+        }
+        defer { try? handle.close() }
+
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.intValue ?? 0
+        if fileSize > maxBytes {
+            try? handle.seek(toOffset: UInt64(fileSize - maxBytes))
+        }
+
+        let data = handle.readDataToEndOfFile()
+        return String(decoding: data, as: UTF8.self)
     }
 }
 

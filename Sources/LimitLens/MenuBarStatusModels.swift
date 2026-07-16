@@ -120,4 +120,3 @@ struct DiagnosticTestResult: Equatable, Identifiable {
 
     var id: String { "\(timestamp.timeIntervalSince1970)" }
 }
-

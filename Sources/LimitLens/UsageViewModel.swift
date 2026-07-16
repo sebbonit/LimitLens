@@ -25,12 +25,12 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var configuration: LimitLensConfiguration
     @Published private(set) var now = Date()
-    private var lastClockMinute: Int = -1
+    private var lastClockMinute: Int64 = .min
 
     /// Test hook to override the current time.
     func setNowForTesting(_ date: Date) {
         now = date
-        lastClockMinute = Calendar.current.component(.minute, from: date)
+        lastClockMinute = clockMinute(containing: date)
     }
     @Published private(set) var lastFetchAt: [ProviderTab: Date] = [:]
     @Published private(set) var paceProjections: [ProviderTab: PaceProjection] = [:]
@@ -46,6 +46,12 @@ final class UsageViewModel: ObservableObject {
         { self.refreshingProviders[$0] != nil }
     }
 
+    var providerRefreshTimeoutSeconds: TimeInterval = 30
+
+    private struct ProviderRefreshTimeoutError: Error {
+        let tab: ProviderTab
+    }
+
     private let configurationStore: LimitLensConfigurationStore?
     private let service: CodexUsageFetching?
     private let cursorService: CursorUsageFetching?
@@ -54,6 +60,7 @@ final class UsageViewModel: ObservableObject {
     internal let historyStore: QuotaExhaustionHistoryStoring
     private var didStartLoops = false
     private var refreshingProviders: [ProviderTab: UUID] = [:]
+    private var refreshStartedAt: [ProviderTab: Date] = [:]
     private let notificationCoordinator: NotificationCoordinator
     private var scheduledRefreshTask: Task<Void, Never>?
     private var refreshLoopTask: Task<Void, Never>?
@@ -122,7 +129,7 @@ final class UsageViewModel: ObservableObject {
         if !didStartLoops {
             didStartLoops = true
             clockLoopTask = Task { await clockLoop() }
-            autoSwitchLoopTask = Task { await autoSwitchLoop() }
+            restartAutoSwitchLoop()
             observeWorkspacePowerState()
         }
 
@@ -168,6 +175,7 @@ final class UsageViewModel: ObservableObject {
     private func handleSystemSleep() {
         scheduledRefreshTask?.cancel()
         refreshingProviders.removeAll()
+        refreshStartedAt.removeAll()
         updateIsRefreshing()
     }
 
@@ -176,11 +184,13 @@ final class UsageViewModel: ObservableObject {
         scheduledRefreshTask?.cancel()
         refreshLoopTask?.cancel()
         refreshingProviders.removeAll()
+        refreshStartedAt.removeAll()
         updateIsRefreshing()
         startRefreshLoopIfNeeded()
     }
 
     func refresh() async {
+        clearStaleProviderRefreshes()
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { updateIsRefreshing() }
@@ -311,6 +321,7 @@ final class UsageViewModel: ObservableObject {
 
     func refreshProvider(_ tab: ProviderTab) async {
         guard isProviderEnabled(tab) else { return }
+        clearStaleProviderRefresh(for: tab)
         guard refreshingProviders[tab] == nil else { return }
         isRefreshing = true
         defer { updateIsRefreshing() }
@@ -329,12 +340,16 @@ final class UsageViewModel: ObservableObject {
     }
 
     private func updateIsRefreshing() {
-        isRefreshing = !refreshingProviders.isEmpty
+        let newValue = !refreshingProviders.isEmpty
+        if isRefreshing != newValue {
+            isRefreshing = newValue
+        }
     }
 
     private func beginRefreshing(_ tab: ProviderTab) -> UUID {
         let refreshID = UUID()
         refreshingProviders[tab] = refreshID
+        refreshStartedAt[tab] = Date()
         updateIsRefreshing()
         return refreshID
     }
@@ -342,14 +357,60 @@ final class UsageViewModel: ObservableObject {
     private func finishRefreshing(_ tab: ProviderTab, refreshID: UUID) {
         guard refreshingProviders[tab] == refreshID else { return }
         refreshingProviders[tab] = nil
+        refreshStartedAt[tab] = nil
         updateIsRefreshing()
     }
 
+    private func clearStaleProviderRefreshes() {
+        for tab in ProviderTab.providerCases {
+            clearStaleProviderRefresh(for: tab)
+        }
+    }
+
+    private func clearStaleProviderRefresh(for tab: ProviderTab) {
+        guard refreshingProviders[tab] != nil,
+              let started = refreshStartedAt[tab],
+              Date().timeIntervalSince(started) >= providerRefreshTimeoutSeconds else {
+            return
+        }
+        refreshingProviders[tab] = nil
+        refreshStartedAt[tab] = nil
+        updateIsRefreshing()
+    }
+
+    private func withProviderTimeout<T: Sendable>(
+        for tab: ProviderTab,
+        _ operation: @Sendable @escaping () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(self.providerRefreshTimeoutSeconds))
+                throw ProviderRefreshTimeoutError(tab: tab)
+            }
+
+            guard let result = try await group.next() else {
+                throw ProviderRefreshTimeoutError(tab: tab)
+            }
+            group.cancelAll()
+            return result
+        }
+    }
+
     func updateConfiguration(_ update: (inout LimitLensConfiguration) -> Void) {
+        let previousMenuBarDisplay = configuration.privacy.menuBarDisplay
+        let previousAutoSwitchInterval = configuration.privacy.autoSwitchIntervalSeconds
         update(&configuration)
         configurationStore?.configuration = configuration
         configurationStore?.save()
         applyDisabledStates()
+
+        if configuration.privacy.menuBarDisplay != previousMenuBarDisplay
+            || configuration.privacy.autoSwitchIntervalSeconds != previousAutoSwitchInterval {
+            restartAutoSwitchLoop()
+        }
     }
 
     func resetConfigurationToDefaults() {
@@ -364,7 +425,11 @@ final class UsageViewModel: ObservableObject {
         defer { finishRefreshing(.codex, refreshID: refreshID) }
         state = snapshot == nil ? .loading : .loaded
         do {
-            let refreshedSnapshot = try await withRetry { try await codexService().fetchSnapshot() }
+            let refreshedSnapshot = try await withRetry {
+                try await self.withProviderTimeout(for: .codex) {
+                    try await self.codexService().fetchSnapshot()
+                }
+            }
             try Task.checkCancellation()
             guard refreshingProviders[.codex] == refreshID else { return }
             snapshot = refreshedSnapshot
@@ -391,7 +456,11 @@ final class UsageViewModel: ObservableObject {
         defer { finishRefreshing(.cursor, refreshID: refreshID) }
         cursorState = cursorSnapshot == nil ? .loading : .loaded
         do {
-            let refreshedSnapshot = try await withRetry { try await cursorUsageService().fetchSnapshot() }
+            let refreshedSnapshot = try await withRetry {
+                try await self.withProviderTimeout(for: .cursor) {
+                    try await self.cursorUsageService().fetchSnapshot()
+                }
+            }
             try Task.checkCancellation()
             guard refreshingProviders[.cursor] == refreshID else { return }
             cursorSnapshot = refreshedSnapshot
@@ -418,7 +487,11 @@ final class UsageViewModel: ObservableObject {
         defer { finishRefreshing(.devin, refreshID: refreshID) }
         desktopQuotaState = desktopQuotaSnapshots.isEmpty ? .loading : .loaded
         do {
-            let snapshots = try await withRetry { try await desktopQuotaUsageService().fetchSnapshots() }
+            let snapshots = try await withRetry {
+                try await self.withProviderTimeout(for: .devin) {
+                    try await self.desktopQuotaUsageService().fetchSnapshots()
+                }
+            }
             try Task.checkCancellation()
             guard refreshingProviders[.devin] == refreshID else { return }
             desktopQuotaSnapshots = snapshots
@@ -433,6 +506,10 @@ final class UsageViewModel: ObservableObject {
             }
         } catch is CancellationError {
             return
+        } catch is ProviderRefreshTimeoutError {
+            guard refreshingProviders[.devin] == refreshID else { return }
+            desktopQuotaState = .failed("Devin refresh timed out.")
+            lastErrors[.devin] = "Devin refresh timed out."
         } catch {
             guard refreshingProviders[.devin] == refreshID else { return }
             desktopQuotaState = .failed("Devin quotas are temporarily unavailable.")
@@ -445,7 +522,11 @@ final class UsageViewModel: ObservableObject {
         defer { finishRefreshing(.openCodeGo, refreshID: refreshID) }
         openCodeGoState = openCodeGoSnapshot == nil ? .loading : .loaded
         do {
-            let refreshedSnapshot = try await withRetry { try await openCodeGoUsageService().fetchSnapshot() }
+            let refreshedSnapshot = try await withRetry {
+                try await self.withProviderTimeout(for: .openCodeGo) {
+                    try await self.openCodeGoUsageService().fetchSnapshot()
+                }
+            }
             try Task.checkCancellation()
             guard refreshingProviders[.openCodeGo] == refreshID else { return }
             openCodeGoSnapshot = refreshedSnapshot
@@ -685,24 +766,49 @@ final class UsageViewModel: ObservableObject {
     private func clockLoop() async {
         while !Task.isCancelled {
             let current = Date()
-            let minute = Calendar.current.component(.minute, from: current)
+            let minute = clockMinute(containing: current)
             if minute != lastClockMinute {
                 lastClockMinute = minute
                 now = current
             }
-            try? await Task.sleep(for: .seconds(1))
+
+            let secondsIntoMinute = current.timeIntervalSinceReferenceDate
+                .truncatingRemainder(dividingBy: 60)
+            let delay = max(0.1, 60 - secondsIntoMinute + 0.01)
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
         }
     }
 
-    private func autoSwitchLoop() async {
-        while !Task.isCancelled {
-            guard configuration.privacy.menuBarDisplay == .auto else {
-                try? await Task.sleep(for: .seconds(1))
-                continue
+    private func clockMinute(containing date: Date) -> Int64 {
+        Int64(floor(date.timeIntervalSinceReferenceDate / 60))
+    }
+
+    private func restartAutoSwitchLoop() {
+        autoSwitchLoopTask?.cancel()
+        autoSwitchLoopTask = nil
+
+        guard didStartLoops, configuration.privacy.menuBarDisplay == .auto else {
+            if autoSwitchDisplay != .logos {
+                autoSwitchDisplay = .logos
             }
+            return
+        }
+        autoSwitchLoopTask = Task { await autoSwitchLoop() }
+    }
+
+    private func autoSwitchLoop() async {
+        while !Task.isCancelled, configuration.privacy.menuBarDisplay == .auto {
             autoSwitchDisplay = (autoSwitchDisplay == .logos) ? .countdowns : .logos
             let interval = configuration.privacy.autoSwitchIntervalSeconds
-            try? await Task.sleep(for: .seconds(interval))
+            do {
+                try await Task.sleep(for: .seconds(interval))
+            } catch {
+                return
+            }
         }
     }
 }
