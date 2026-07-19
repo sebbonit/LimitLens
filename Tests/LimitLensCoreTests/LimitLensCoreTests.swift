@@ -482,7 +482,7 @@ struct LimitLensCoreTests {
         #expect(UsageFormatting.usd(cents: 2_000) == "$20")
         #expect(UsageFormatting.usd(cents: 1_234) == "$12.34")
         #expect(UsageFormatting.usd(cents: nil) == "--")
-        #expect(UsageFormatting.usd(micros: -82_287) == "$-0.08")
+        #expect(UsageFormatting.usd(micros: -82_287) == "-$0.08")
     }
 
     @Test("Maps auth-like app-server errors to sign-in state")

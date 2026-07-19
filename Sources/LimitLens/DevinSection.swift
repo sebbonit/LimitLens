@@ -12,6 +12,7 @@ struct DevinSectionView: View {
     var onRefresh: (() -> Void)? = nil
     var paceProjection: PaceProjection? = nil
     var isCollectingPaceData: Bool = false
+    @Environment(\.appAppearance) private var appearance
 
     var body: some View {
         SectionBlock {
@@ -56,29 +57,39 @@ struct DevinSectionView: View {
 
     private func desktopQuotaView(_ quota: DesktopQuotaSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
-                quotaBar(
-                    title: "Daily",
-                    usedPercent: quota.dailyUsedPercent,
-                    isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
-                    resetAt: advancedResetDate(quota.dailyResetAt, interval: 86_400, now: now),
-                    tint: .green
-                )
-                quotaBar(
-                    title: "Weekly",
-                    usedPercent: quota.weeklyUsedPercent,
-                    isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
-                    resetAt: advancedResetDate(quota.weeklyResetAt, interval: 7 * 86_400, now: now),
-                    tint: .orange
-                )
+            let daily = quotaBar(
+                title: "Daily",
+                usedPercent: quota.dailyUsedPercent,
+                isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
+                resetAt: advancedResetDate(quota.dailyResetAt, interval: 86_400, now: now),
+                tint: .green
+            )
+            let weekly = quotaBar(
+                title: "Weekly",
+                usedPercent: quota.weeklyUsedPercent,
+                isUnavailable: quota.shouldTreatQuotaUsageAsUnavailable,
+                resetAt: advancedResetDate(quota.weeklyResetAt, interval: 7 * 86_400, now: now),
+                tint: .orange
+            )
+
+            if appearance == .harbor {
+                VStack(spacing: 8) {
+                    daily
+                    weekly
+                }
+            } else {
+                HStack(alignment: .top, spacing: 8) {
+                    daily
+                    weekly
+                }
             }
 
             if quota.overageBalanceMicros != nil || quota.cycleEnd != nil {
                 Divider()
 
                 HStack(alignment: .firstTextBaseline) {
-                    Text("EXTRA USAGE")
-                        .font(.system(size: 9, weight: .bold))
+                    Text(appearance == .harbor ? "Extra usage" : "EXTRA USAGE")
+                        .font(appearance == .harbor ? .caption2.weight(.semibold) : .system(size: 9, weight: .bold))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(UsageFormatting.usd(micros: quota.overageBalanceMicros))

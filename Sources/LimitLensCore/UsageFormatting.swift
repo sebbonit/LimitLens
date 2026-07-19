@@ -88,18 +88,20 @@ public enum UsageFormatting {
 
     public static func usd(cents: Int?) -> String {
         guard let cents else { return "--" }
-        let dollars = cents / 100
+        let sign = cents < 0 ? "-" : ""
+        let dollars = abs(cents) / 100
         let remainder = abs(cents % 100)
         if remainder == 0 {
-            return "$\(dollars)"
+            return "\(sign)$\(dollars)"
         }
-        return String(format: "$%d.%02d", dollars, remainder)
+        return String(format: "%@$%d.%02d", sign, dollars, remainder)
     }
 
     public static func usd(micros: Int64?) -> String {
         guard let micros else { return "--" }
-        let value = Double(micros) / 1_000_000
-        return String(format: "$%.2f", value)
+        let value = abs(Double(micros) / 1_000_000)
+        let sign = micros < 0 ? "-" : ""
+        return String(format: "%@$%.2f", sign, value)
     }
 
     public static func expiryUrgency(expiresAt: Date?, now: Date = Date()) -> ExpiryUrgency {

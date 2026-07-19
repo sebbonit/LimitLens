@@ -646,42 +646,44 @@ struct UsageCard: View {
 
     private var harborCard: some View {
         HStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
+            Rectangle()
                 .fill(tint)
                 .frame(width: 3)
-                .padding(.vertical, 10)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(label)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(tint)
                     Spacer(minLength: 4)
                     Text(percentText(percentUsed))
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(percentUsed == nil ? .secondary : .primary)
                 }
 
                 GeometryReader { geometry in
+                    let fillWidth = geometry.size.width * clampedPercent / 100
                     ZStack(alignment: .leading) {
                         Capsule()
                             .fill(tint.opacity(0.12))
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [tint.opacity(0.75), tint],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                        if fillWidth > 0 {
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [tint.opacity(0.75), tint],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
-                            )
-                            .frame(width: max(6, geometry.size.width * clampedPercent / 100))
+                                .frame(width: fillWidth)
+                        }
                     }
                 }
-                .frame(height: 6)
+                .frame(height: 5)
 
                 if leadingDetail != nil || trailingDetail != nil {
-                    HStack(spacing: 6) {
+                    HStack(alignment: .top, spacing: 6) {
                         if let leadingDetail {
                             Text(leadingDetail)
                                 .layoutPriority(1)
@@ -695,18 +697,17 @@ struct UsageCard: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(.leading, 10)
             .padding(.trailing, 12)
-            .padding(.vertical, 11)
+            .padding(.vertical, 10)
         }
-        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(tint.opacity(0.05))
-        )
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(tint.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(tint.opacity(0.16), lineWidth: 1)
