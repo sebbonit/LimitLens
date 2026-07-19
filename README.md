@@ -16,7 +16,7 @@
   <a href="#testing"><img src="https://img.shields.io/badge/tests-187-brightgreen.svg" alt="Tests: 187"></a>
 </p>
 
-![LimitLens Classic, Studio, Terminal, and Pulse interfaces](docs/screenshots/limitlens-themes.png)
+![LimitLens Classic, Studio, Terminal, Pulse, and Harbor interfaces](docs/screenshots/limitlens-themes.png)
 
 ---
 
@@ -57,7 +57,7 @@ Each provider can be enabled or disabled independently. Disabled providers are n
 - Per-provider detail tabs, diagnostics, and on-demand refresh
 
 ### Appearance themes
-Four popover layouts, switchable in **Settings → Appearance**:
+Five popover layouts, switchable in **Settings → Appearance**:
 
 | Theme | Layout |
 |-------|--------|
@@ -65,6 +65,7 @@ Four popover layouts, switchable in **Settings → Appearance**:
 | **Studio** | Spacious workspace with a labeled sidebar |
 | **Terminal** | Compact dark console look with monospaced UI |
 | **Pulse** | Meter-first cards with bottom navigation |
+| **Harbor** | Teal instrument panel with segmented navigation |
 
 ### Menu bar display
 Configurable from Settings (or the footer toggle):

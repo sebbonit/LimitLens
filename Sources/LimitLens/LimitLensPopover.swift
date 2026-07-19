@@ -24,6 +24,8 @@ struct LimitLensPopover: View {
                     .foregroundStyle(Color(red: 0.76, green: 1, blue: 0.79))
             case .pulse:
                 pulseLayout
+            case .harbor:
+                harborLayout
             }
         }
         .environment(\.appAppearance, appearance)
@@ -53,6 +55,99 @@ struct LimitLensPopover: View {
             bottomTabBar
         }
         .padding(appearance.outerPadding)
+    }
+
+    private var harborLayout: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            harborHeader
+            segmentedTabBar
+            contentView
+            footer
+        }
+        .padding(appearance.outerPadding)
+    }
+
+    private var harborHeader: some View {
+        HStack(spacing: 10) {
+            LimitLensMark()
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("LimitLens")
+                    .font(.subheadline.weight(.semibold))
+                Text("Harbor · \(selectedTab.displayName)")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(appearance.accentColor)
+            }
+
+            Spacer()
+
+            Button {
+                Task { await viewModel.refresh() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(appearance.accentColor)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(appearance.accentColor.opacity(0.12))
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Refresh all providers")
+        }
+    }
+
+    private var segmentedTabBar: some View {
+        HStack(spacing: 2) {
+            ForEach(viewModel.visibleTabs) { tab in
+                harborTabButton(for: tab)
+            }
+        }
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(appearance.panelBackground(for: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(appearance.accentColor.opacity(0.16), lineWidth: 1)
+        )
+    }
+
+    private func harborTabButton(for tab: ProviderTab) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            selectedTab = tab
+        } label: {
+            Text(
+                providerName(
+                    tab.displayName,
+                    privateName: tab.privateName,
+                    hidesProviderNames: viewModel.hidesProviderNames
+                )
+            )
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .foregroundStyle(isSelected ? Color.white : Color.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isSelected ? appearance.accentColor : .clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(
+            providerName(
+                tab.displayName,
+                privateName: tab.privateName,
+                hidesProviderNames: viewModel.hidesProviderNames
+            )
+        )
     }
 
     private var pulseHeader: some View {

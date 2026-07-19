@@ -20,6 +20,7 @@ extension AppAppearance {
         case .studio: return 680
         case .terminal: return 620
         case .pulse: return 500
+        case .harbor: return 540
         }
     }
 
@@ -29,6 +30,7 @@ extension AppAppearance {
         case .studio: return 16
         case .terminal: return 8
         case .pulse: return 14
+        case .harbor: return 13
         }
     }
 
@@ -38,6 +40,7 @@ extension AppAppearance {
         case .studio: return 15
         case .terminal: return 2
         case .pulse: return 20
+        case .harbor: return 10
         }
     }
 
@@ -47,6 +50,7 @@ extension AppAppearance {
         case .studio: return 12
         case .terminal: return 1
         case .pulse: return 16
+        case .harbor: return 10
         }
     }
 
@@ -56,6 +60,7 @@ extension AppAppearance {
         case .studio: return .indigo
         case .terminal: return .green
         case .pulse: return Color(red: 0.96, green: 0.42, blue: 0.18)
+        case .harbor: return Color(red: 0.08, green: 0.58, blue: 0.62)
         }
     }
 
@@ -83,6 +88,13 @@ extension AppAppearance {
             default:
                 return Color(red: 0.985, green: 0.965, blue: 0.945)
             }
+        case .harbor:
+            switch colorScheme {
+            case .dark:
+                return Color(red: 0.06, green: 0.09, blue: 0.10)
+            default:
+                return Color(red: 0.93, green: 0.96, blue: 0.965)
+            }
         }
     }
 
@@ -106,6 +118,13 @@ extension AppAppearance {
             default:
                 return Color(red: 1.0, green: 0.99, blue: 0.98)
             }
+        case .harbor:
+            switch colorScheme {
+            case .dark:
+                return Color(red: 0.09, green: 0.13, blue: 0.145)
+            default:
+                return Color(red: 0.975, green: 0.99, blue: 0.992)
+            }
         }
     }
 
@@ -122,6 +141,13 @@ extension AppAppearance {
             switch colorScheme {
             case .dark:
                 return Color(red: 0.16, green: 0.14, blue: 0.125)
+            default:
+                return .white
+            }
+        case .harbor:
+            switch colorScheme {
+            case .dark:
+                return Color(red: 0.11, green: 0.155, blue: 0.17)
             default:
                 return .white
             }
@@ -147,6 +173,15 @@ extension AppAppearance {
             return accentColor.opacity(0.12)
         }
     }
+
+    func harborShadowColor(for colorScheme: ColorScheme) -> Color {
+        switch colorScheme {
+        case .dark:
+            return Color.black.opacity(0.30)
+        default:
+            return accentColor.opacity(0.10)
+        }
+    }
 }
 
 struct SectionBlock<Content: View>: View {
@@ -156,7 +191,7 @@ struct SectionBlock<Content: View>: View {
 
     var body: some View {
         content
-            .padding(appearance == .terminal ? 8 : (appearance == .pulse ? 12 : 10))
+            .padding(appearance == .terminal ? 8 : (appearance == .pulse || appearance == .harbor ? 12 : 10))
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
@@ -165,8 +200,10 @@ struct SectionBlock<Content: View>: View {
             .overlay(
                 RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
                     .stroke(
-                        appearance == .terminal ? Color.green.opacity(0.26) : appearance.accentColor.opacity(appearance == .pulse ? 0.14 : 0.10),
-                        lineWidth: appearance == .terminal ? 1 : (appearance == .pulse ? 1 : 0.5)
+                        appearance == .terminal
+                            ? Color.green.opacity(0.26)
+                            : appearance.accentColor.opacity(appearance == .pulse || appearance == .harbor ? 0.14 : 0.10),
+                        lineWidth: appearance == .terminal || appearance == .pulse || appearance == .harbor ? 1 : 0.5
                     )
             )
             .shadow(
@@ -180,6 +217,7 @@ struct SectionBlock<Content: View>: View {
         switch appearance {
         case .studio: return appearance.studioShadowColor(for: colorScheme)
         case .pulse: return appearance.pulseShadowColor(for: colorScheme)
+        case .harbor: return appearance.harborShadowColor(for: colorScheme)
         default: return .clear
         }
     }
@@ -188,6 +226,7 @@ struct SectionBlock<Content: View>: View {
         switch appearance {
         case .studio: return 8
         case .pulse: return 10
+        case .harbor: return 6
         default: return 0
         }
     }
@@ -196,6 +235,7 @@ struct SectionBlock<Content: View>: View {
         switch appearance {
         case .studio: return 3
         case .pulse: return 4
+        case .harbor: return 2
         default: return 0
         }
     }
@@ -410,6 +450,8 @@ struct UsageCard: View {
             terminalCard
         case .pulse:
             pulseCard
+        case .harbor:
+            harborCard
         }
     }
 
@@ -601,6 +643,75 @@ struct UsageCard: View {
                 .stroke(tint.opacity(0.18), lineWidth: 1)
         )
     }
+
+    private var harborCard: some View {
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(tint)
+                .frame(width: 3)
+                .padding(.vertical, 10)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(label)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(tint)
+                    Spacer(minLength: 4)
+                    Text(percentText(percentUsed))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(percentUsed == nil ? .secondary : .primary)
+                }
+
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(tint.opacity(0.12))
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [tint.opacity(0.75), tint],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(6, geometry.size.width * clampedPercent / 100))
+                    }
+                }
+                .frame(height: 6)
+
+                if leadingDetail != nil || trailingDetail != nil {
+                    HStack(spacing: 6) {
+                        if let leadingDetail {
+                            Text(leadingDetail)
+                                .layoutPriority(1)
+                        }
+                        Spacer(minLength: 4)
+                        if let trailingDetail {
+                            Text(trailingDetail)
+                                .layoutPriority(1)
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, 12)
+            .padding(.vertical, 11)
+        }
+        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(tint.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(tint.opacity(0.16), lineWidth: 1)
+        )
+    }
 }
 
 struct MetricTile: View {
@@ -639,16 +750,34 @@ struct MetricTile: View {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(appearance.accentColor.opacity(0.14), lineWidth: 1)
                 )
+        case .harbor:
+            metricContent
+                .padding(11)
+                .frame(maxWidth: .infinity, minHeight: 64, alignment: .topLeading)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(appearance.accentColor.opacity(0.05))
+                )
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .fill(appearance.accentColor.opacity(0.55))
+                        .frame(width: 2.5)
+                        .padding(.vertical, 10)
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(appearance.accentColor.opacity(0.12), lineWidth: 1)
+                )
         }
     }
 
     private var metricContent: some View {
-        VStack(alignment: .leading, spacing: appearance == .studio || appearance == .pulse ? 5 : 3) {
+        VStack(alignment: .leading, spacing: appearance == .studio || appearance == .pulse || appearance == .harbor ? 5 : 3) {
             Text(title)
                 .font(appearance == .terminal ? .system(size: 9, weight: .bold, design: .monospaced) : .caption2.weight(.medium))
                 .foregroundStyle(appearance == .terminal ? Color.green.opacity(0.62) : Color.secondary)
             Text(value)
-                .font(appearance == .studio || appearance == .pulse ? .title3.weight(.bold) : .body.weight(.semibold))
+                .font(appearance == .studio || appearance == .pulse || appearance == .harbor ? .title3.weight(.bold) : .body.weight(.semibold))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -853,6 +982,8 @@ struct SectionHeader: View {
             terminalHeader
         case .pulse:
             pulseHeader
+        case .harbor:
+            harborHeader
         }
     }
 
@@ -954,6 +1085,41 @@ struct SectionHeader: View {
             headerControls
         }
         .padding(.bottom, 2)
+    }
+
+    private var harborHeader: some View {
+        HStack(spacing: 10) {
+            Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(appearance.accentColor)
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(appearance.accentColor.opacity(0.12))
+                )
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            headerControls
+        }
+        .padding(.bottom, 2)
+        .overlay(alignment: .bottom) {
+            LinearGradient(
+                colors: [appearance.accentColor.opacity(0.35), appearance.accentColor.opacity(0.05), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(height: 1.5)
+        }
     }
 
     @ViewBuilder

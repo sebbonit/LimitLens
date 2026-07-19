@@ -138,6 +138,24 @@ struct SettingsSectionView: View {
                     .stroke(appearance.accentColor.opacity(0.14), lineWidth: 1)
             )
             .shadow(color: appearance.pulseShadowColor(for: colorScheme), radius: 8, y: 3)
+        case .harbor:
+            VStack(alignment: .leading, spacing: isCollapsed ? 0 : 10) {
+                settingsSectionButton(id, title: title, systemImage: systemImage, detail: detail, isCollapsed: isCollapsed)
+                if !isCollapsed { content() }
+            }
+            .padding(12)
+            .background(appearance.cardBackground(for: colorScheme), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(appearance.accentColor.opacity(0.55))
+                    .frame(width: 2.5)
+                    .padding(.vertical, 10)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(appearance.accentColor.opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: appearance.harborShadowColor(for: colorScheme), radius: 6, y: 2)
         }
     }
 
@@ -155,15 +173,15 @@ struct SettingsSectionView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
-                    .font(.system(size: appearance == .studio || appearance == .pulse ? 13 : 11, weight: .semibold))
-                    .foregroundStyle(appearance == .studio || appearance == .pulse ? appearance.accentColor : Color.secondary)
-                    .frame(width: appearance == .studio || appearance == .pulse ? 30 : 20, height: appearance == .studio || appearance == .pulse ? 30 : 20)
+                    .font(.system(size: appearance == .studio || appearance == .pulse || appearance == .harbor ? 13 : 11, weight: .semibold))
+                    .foregroundStyle(appearance == .studio || appearance == .pulse || appearance == .harbor ? appearance.accentColor : Color.secondary)
+                    .frame(width: appearance == .studio || appearance == .pulse || appearance == .harbor ? 30 : 20, height: appearance == .studio || appearance == .pulse || appearance == .harbor ? 30 : 20)
                     .background(
-                        RoundedRectangle(cornerRadius: appearance == .studio || appearance == .pulse ? 9 : 10)
-                            .fill((appearance == .studio || appearance == .pulse ? appearance.accentColor : Color.secondary).opacity(0.10))
+                        RoundedRectangle(cornerRadius: appearance == .studio || appearance == .pulse || appearance == .harbor ? 9 : 10)
+                            .fill((appearance == .studio || appearance == .pulse || appearance == .harbor ? appearance.accentColor : Color.secondary).opacity(0.10))
                     )
                 Text(title)
-                    .font(appearance == .studio || appearance == .pulse ? .headline : .subheadline.weight(.semibold))
+                    .font(appearance == .studio || appearance == .pulse || appearance == .harbor ? .headline : .subheadline.weight(.semibold))
                 Spacer()
                 if let detail {
                     Text(detail)
@@ -300,6 +318,25 @@ struct SettingsSectionView: View {
                             Capsule().fill(appearance.accentColor.opacity(0.35)).frame(height: 5)
                         }
                     }
+                }
+                .padding(7)
+            case .harbor:
+                VStack(spacing: 5) {
+                    HStack(spacing: 2) {
+                        ForEach(0..<4, id: \.self) { index in
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(appearance.accentColor.opacity(index == 1 ? 0.55 : 0.22))
+                                .frame(height: 8)
+                        }
+                    }
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(appearance.accentColor.opacity(0.55))
+                            .frame(width: 3)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(appearance.accentColor.opacity(0.16))
+                    }
+                    .frame(height: 18)
                 }
                 .padding(7)
             }

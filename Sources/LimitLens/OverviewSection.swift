@@ -25,6 +25,8 @@ struct OverviewSectionView: View {
             terminalOverview
         case .pulse:
             pulseOverview
+        case .harbor:
+            harborOverview
         }
     }
 
@@ -313,6 +315,151 @@ struct OverviewSectionView: View {
                     .stroke(severityColor(summary.severity).opacity(0.14), lineWidth: 1)
             )
             .shadow(color: appearance.pulseShadowColor(for: colorScheme), radius: 6, y: 3)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var harborOverview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Dock overview")
+                        .font(.title3.weight(.semibold))
+                    Text(overviewDetail)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(billingSummaryDetail)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(appearance.accentColor)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(appearance.accentColor.opacity(0.10))
+                    )
+            }
+
+            if summaries.isEmpty {
+                StatusLine(icon: "slider.horizontal.3", color: .secondary, text: "No providers enabled.")
+            } else {
+                VStack(spacing: 7) {
+                    ForEach(summaries) { summary in
+                        harborProviderRow(summary)
+                    }
+                }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach(billingExpiries) { entry in
+                        billingExpiryCell(entry)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .frame(minWidth: 150, alignment: .leading)
+                            .background(
+                                appearance.cardBackground(for: colorScheme),
+                                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(appearance.accentColor.opacity(0.12), lineWidth: 1)
+                            )
+                    }
+                }
+            }
+
+            if !exhaustionSummaries.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Exhaustion history")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    ForEach(exhaustionSummaries.prefix(3)) { entry in
+                        exhaustionSpeedRow(entry)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .background(
+                    appearance.cardBackground(for: colorScheme),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(appearance.accentColor.opacity(0.12), lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private func harborProviderRow(_ summary: ProviderUsageSummary) -> some View {
+        Button {
+            onSelectTab(summary.tab)
+        } label: {
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(severityColor(summary.severity))
+                    .frame(width: 3)
+                    .padding(.vertical, 8)
+
+                HStack(spacing: 10) {
+                    Image(systemName: providerIcon(summary.tab.systemImage, hidesProviderNames: hidesProviderNames))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(severityColor(summary.severity))
+                        .frame(width: 28, height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(severityColor(summary.severity).opacity(0.12))
+                        )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(providerName(summary.tab.displayName, privateName: summary.tab.privateName, hidesProviderNames: hidesProviderNames))
+                            .font(.subheadline.weight(.semibold))
+                        Text(overviewSupportText(for: summary))
+                            .font(.caption2)
+                            .foregroundStyle(overviewSupportColor(for: summary))
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(providerSafeMessage(summary.detail, hidesProviderNames: hidesProviderNames))
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(summary.severity == .unavailable ? .secondary : .primary)
+                        if let percent = summary.percentUsed {
+                            GeometryReader { geometry in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(severityColor(summary.severity).opacity(0.12))
+                                    Capsule()
+                                        .fill(severityColor(summary.severity))
+                                        .frame(width: max(4, geometry.size.width * percent / 100))
+                                }
+                            }
+                            .frame(width: 54, height: 4)
+                        } else {
+                            Text(summary.secondaryDetail.map { providerSafeMessage($0, hidesProviderNames: hidesProviderNames) } ?? "—")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .padding(.leading, 10)
+                .padding(.trailing, 12)
+                .padding(.vertical, 10)
+            }
+            .background(
+                appearance.cardBackground(for: colorScheme),
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(severityColor(summary.severity).opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: appearance.harborShadowColor(for: colorScheme), radius: 5, y: 2)
         }
         .buttonStyle(.plain)
     }

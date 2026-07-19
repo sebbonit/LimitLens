@@ -98,7 +98,18 @@ struct LimitLensConfigurationTests {
 
         let reloaded = LimitLensConfigurationStore(url: url)
         #expect(reloaded.configuration.appearance == .pulse)
-        #expect(AppAppearance.allCases.map(\.rawValue) == ["classic", "studio", "terminal", "pulse"])
+        #expect(AppAppearance.allCases.map(\.rawValue) == ["classic", "studio", "terminal", "pulse", "harbor"])
+    }
+
+    @Test("Persists harbor appearance")
+    func persistsHarborAppearance() {
+        let url = temporaryConfigURL()
+        let store = LimitLensConfigurationStore(url: url)
+        store.configuration.appearance = .harbor
+        store.save()
+
+        let reloaded = LimitLensConfigurationStore(url: url)
+        #expect(reloaded.configuration.appearance == .harbor)
     }
 
     @Test("Legacy config defaults setup to dismissed")
