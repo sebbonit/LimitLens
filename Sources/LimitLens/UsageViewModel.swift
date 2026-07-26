@@ -40,7 +40,8 @@ final class UsageViewModel: ObservableObject {
     @Published private(set) var autoSwitchDisplay: MenuBarDisplay = .logos
     @Published var exhaustionSummaries: [ExhaustionSpeedSummary] = []
 
-    private var paceSampleHistory: [ProviderTab: [PaceSample]] = [:]
+    var paceSampleHistory: [ProviderTab: [PaceSample]] = [:]
+    private static let maxChartSampleHistory = 1_000
 
     var isProviderRefreshing: (ProviderTab) -> Bool {
         { self.refreshingProviders[$0] != nil }
@@ -58,6 +59,7 @@ final class UsageViewModel: ObservableObject {
     private let desktopQuotaService: DesktopQuotaFetching?
     private let openCodeGoService: OpenCodeGoUsageFetching?
     internal let historyStore: QuotaExhaustionHistoryStoring
+    let quotaUsageHistoryStore: QuotaUsageHistoryStoring
     private var didStartLoops = false
     private var refreshingProviders: [ProviderTab: UUID] = [:]
     private var refreshStartedAt: [ProviderTab: Date] = [:]
@@ -80,7 +82,8 @@ final class UsageViewModel: ObservableObject {
             desktopQuotaService: nil,
             openCodeGoService: nil,
             notificationCoordinator: NotificationCoordinator(),
-            historyStore: QuotaExhaustionHistoryStore()
+            historyStore: QuotaExhaustionHistoryStore(),
+            quotaUsageHistoryStore: QuotaUsageHistoryStore()
         )
     }
 
@@ -91,7 +94,8 @@ final class UsageViewModel: ObservableObject {
         desktopQuotaService: DesktopQuotaFetching,
         openCodeGoService: OpenCodeGoUsageFetching,
         notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
-        historyStore: QuotaExhaustionHistoryStoring = QuotaExhaustionHistoryStore()
+        historyStore: QuotaExhaustionHistoryStoring = QuotaExhaustionHistoryStore(),
+        quotaUsageHistoryStore: QuotaUsageHistoryStoring = QuotaUsageHistoryStore()
     ) {
         self.configurationStore = nil
         self.configuration = configuration
@@ -101,6 +105,7 @@ final class UsageViewModel: ObservableObject {
         self.openCodeGoService = openCodeGoService
         self.notificationCoordinator = notificationCoordinator
         self.historyStore = historyStore
+        self.quotaUsageHistoryStore = quotaUsageHistoryStore
         updateExhaustionSummaries()
     }
 
@@ -112,7 +117,8 @@ final class UsageViewModel: ObservableObject {
         desktopQuotaService: DesktopQuotaFetching?,
         openCodeGoService: OpenCodeGoUsageFetching?,
         notificationCoordinator: NotificationCoordinator,
-        historyStore: QuotaExhaustionHistoryStoring
+        historyStore: QuotaExhaustionHistoryStoring,
+        quotaUsageHistoryStore: QuotaUsageHistoryStoring
     ) {
         self.configurationStore = configurationStore
         self.configuration = configuration
@@ -122,6 +128,7 @@ final class UsageViewModel: ObservableObject {
         self.openCodeGoService = openCodeGoService
         self.notificationCoordinator = notificationCoordinator
         self.historyStore = historyStore
+        self.quotaUsageHistoryStore = quotaUsageHistoryStore
         updateExhaustionSummaries()
     }
 
@@ -666,15 +673,39 @@ final class UsageViewModel: ObservableObject {
         }
 
         let now = Date()
-        var history = paceSampleHistory[tab] ?? []
-        history.append(PaceSample(percentUsed: percent, timestamp: now))
-        if history.count > UsagePaceProjection.maxSampleHistory {
-            history.removeFirst(history.count - UsagePaceProjection.maxSampleHistory)
+        var history: [PaceSample]
+        if let provider = quotaUsageHistoryProvider(for: tab),
+           let resetAt = summary.resetAt {
+            quotaUsageHistoryStore.record(
+                QuotaUsageHistorySample(
+                    provider: provider,
+                    observedAt: now,
+                    percentUsed: percent,
+                    resetsAt: resetAt
+                ),
+                now: now
+            )
+            history = QuotaUsageHistoryCalculator.currentCycleSamples(
+                provider: provider,
+                resetsAt: resetAt,
+                in: quotaUsageHistoryStore.payload.samples
+            ).map {
+                PaceSample(percentUsed: $0.percentUsed, timestamp: $0.observedAt)
+            }
+        } else {
+            history = paceSampleHistory[tab] ?? []
+            history.append(PaceSample(percentUsed: percent, timestamp: now))
+        }
+        if let cycleStart = summary.cycleStart {
+            history.removeAll { $0.timestamp < cycleStart }
+        }
+        if history.count > Self.maxChartSampleHistory {
+            history.removeFirst(history.count - Self.maxChartSampleHistory)
         }
         paceSampleHistory[tab] = history
 
         let projection = UsagePaceProjection.project(
-            samples: history,
+            samples: Array(history.suffix(UsagePaceProjection.maxSampleHistory)),
             now: now,
             resetAt: summary.resetAt
         )
@@ -684,6 +715,14 @@ final class UsageViewModel: ObservableObject {
         } else {
             // Not enough elapsed time or samples yet — keep collecting
             collectingPaceData.insert(tab)
+        }
+    }
+
+    private func quotaUsageHistoryProvider(for tab: ProviderTab) -> QuotaUsageHistoryProvider? {
+        switch tab {
+        case .codex: return .codex
+        case .cursor: return .cursor
+        case .overview, .devin, .openCodeGo, .settings: return nil
         }
     }
 

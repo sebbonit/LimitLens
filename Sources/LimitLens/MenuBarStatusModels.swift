@@ -79,6 +79,25 @@ struct ExhaustionSpeedSummary: Identifiable {
     var id: ProviderTab { tab }
 }
 
+/// The provider-independent data needed to draw a quota cycle as remaining
+/// capacity over time.
+struct QuotaPaceChartData: Equatable {
+    let quotaLabel: String
+    let currentPercentUsed: Double
+    let cycleStart: Date
+    let resetAt: Date
+    let now: Date
+    let samples: [PaceSample]
+    let projection: PaceProjection?
+    let currentPercentUsedPerDay: Double
+    let historicalPercentUsedPerDay: Double?
+    let safetyBufferPercent: Double
+
+    var currentPercentRemaining: Double {
+        100 - max(0, min(100, currentPercentUsed))
+    }
+}
+
 enum MenuBarIndicatorState: Equatable {
     case loading
     case healthy

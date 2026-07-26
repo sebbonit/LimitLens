@@ -12,6 +12,7 @@ struct CursorSectionView: View {
     var onRefresh: (() -> Void)? = nil
     var paceProjection: PaceProjection? = nil
     var isCollectingPaceData: Bool = false
+    var paceChart: QuotaPaceChartData? = nil
 
     var body: some View {
         SectionBlock {
@@ -66,7 +67,13 @@ struct CursorSectionView: View {
                 tint: .purple
             )
 
+            if let paceChart {
+                Divider()
+                QuotaPaceChart(data: paceChart, tint: .purple)
+            }
+
             if cursor.autoPercentUsed != nil || cursor.apiPercentUsed != nil {
+                Divider()
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Breakdown")
                         .font(.caption.weight(.semibold))

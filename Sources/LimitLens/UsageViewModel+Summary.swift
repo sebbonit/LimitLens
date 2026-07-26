@@ -65,6 +65,56 @@ extension UsageViewModel {
             .first
     }
 
+    /// Pace charts are intentionally limited to the two providers whose
+    /// detailed tabs currently expose a single, well-defined active cycle.
+    func quotaPaceChart(for tab: ProviderTab) -> QuotaPaceChartData? {
+        guard tab == .codex || tab == .cursor,
+              let summary = providerSummaries.first(where: { $0.tab == tab }),
+              let percentUsed = summary.percentUsed,
+              let cycleStart = summary.cycleStart,
+              let resetAt = summary.resetAt,
+              cycleStart < resetAt else {
+            return nil
+        }
+
+        let samples = paceSampleHistory[tab] ?? []
+        let elapsedDays = max(now.timeIntervalSince(cycleStart) / 86_400, 1 / 24)
+        let windowRate = max(percentUsed / elapsedDays, 0)
+        let recentRate: Double
+        if let first = samples.first,
+           let last = samples.last,
+           last.timestamp > first.timestamp {
+            let sampleDays = last.timestamp.timeIntervalSince(first.timestamp) / 86_400
+            recentRate = max((last.percentUsed - first.percentUsed) / sampleDays, 0)
+        } else {
+            recentRate = windowRate
+        }
+        let observedRate = samples.count > 1
+            ? 0.7 * recentRate + 0.3 * windowRate
+            : windowRate
+        let historyProvider: QuotaUsageHistoryProvider = tab == .codex ? .codex : .cursor
+        let historicalRate = QuotaUsageHistoryCalculator.historicalPercentUsedPerDay(
+            provider: historyProvider,
+            excludingResetAt: resetAt,
+            in: quotaUsageHistoryStore.payload.samples
+        )
+        let projectedRate = historicalRate.map { 0.75 * observedRate + 0.25 * $0 }
+            ?? observedRate
+
+        return QuotaPaceChartData(
+            quotaLabel: summary.quotaLabel ?? "Quota",
+            currentPercentUsed: percentUsed,
+            cycleStart: cycleStart,
+            resetAt: resetAt,
+            now: now,
+            samples: samples,
+            projection: paceProjections[tab],
+            currentPercentUsedPerDay: projectedRate,
+            historicalPercentUsedPerDay: historicalRate,
+            safetyBufferPercent: 3
+        )
+    }
+
     var billingExpiries: [BillingExpiry] {
         enabledProviderTabs.compactMap { tab in
             switch tab {

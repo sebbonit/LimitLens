@@ -316,7 +316,8 @@ struct LimitLensPopover: View {
                     lastUpdated: viewModel.lastFetchAt[.codex],
                     onRefresh: { Task { await viewModel.refreshProvider(.codex) } },
                     paceProjection: viewModel.paceProjections[.codex],
-                    isCollectingPaceData: viewModel.collectingPaceData.contains(.codex)
+                    isCollectingPaceData: viewModel.collectingPaceData.contains(.codex),
+                    paceChart: viewModel.quotaPaceChart(for: .codex)
                 )
             } else {
                 unavailableView
@@ -331,7 +332,8 @@ struct LimitLensPopover: View {
                 lastUpdated: viewModel.lastFetchAt[.cursor],
                 onRefresh: { Task { await viewModel.refreshProvider(.cursor) } },
                 paceProjection: viewModel.paceProjections[.cursor],
-                isCollectingPaceData: viewModel.collectingPaceData.contains(.cursor)
+                isCollectingPaceData: viewModel.collectingPaceData.contains(.cursor),
+                paceChart: viewModel.quotaPaceChart(for: .cursor)
             )
         case .devin:
             DevinSectionView(
@@ -502,7 +504,10 @@ struct LimitLensPopover: View {
                         hidesProviderNames: viewModel.hidesProviderNames,
                         isRefreshing: viewModel.isProviderRefreshing(.codex),
                         lastUpdated: viewModel.lastFetchAt[.codex],
-                        onRefresh: { Task { await viewModel.refreshProvider(.codex) } }
+                        onRefresh: { Task { await viewModel.refreshProvider(.codex) } },
+                        paceProjection: viewModel.paceProjections[.codex],
+                        isCollectingPaceData: viewModel.collectingPaceData.contains(.codex),
+                        paceChart: viewModel.quotaPaceChart(for: .codex)
                     )
                 }
                 SectionBlock {
@@ -516,7 +521,10 @@ struct LimitLensPopover: View {
                     hidesProviderNames: viewModel.hidesProviderNames,
                     isRefreshing: viewModel.isProviderRefreshing(.cursor),
                     lastUpdated: viewModel.lastFetchAt[.cursor],
-                    onRefresh: { Task { await viewModel.refreshProvider(.cursor) } }
+                    onRefresh: { Task { await viewModel.refreshProvider(.cursor) } },
+                    paceProjection: viewModel.paceProjections[.cursor],
+                    isCollectingPaceData: viewModel.collectingPaceData.contains(.cursor),
+                    paceChart: viewModel.quotaPaceChart(for: .cursor)
                 )
             case .devin:
                 DevinSectionView(

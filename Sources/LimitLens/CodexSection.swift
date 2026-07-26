@@ -11,6 +11,7 @@ struct CodexSectionView: View {
     var onRefresh: (() -> Void)? = nil
     var paceProjection: PaceProjection? = nil
     var isCollectingPaceData: Bool = false
+    var paceChart: QuotaPaceChartData? = nil
     @State private var showsResetCreditDetails = false
 
     var body: some View {
@@ -38,6 +39,11 @@ struct CodexSectionView: View {
                     if let secondary = snapshot.rateLimit.secondary {
                         resetWindowView(title: "Secondary", window: secondary, tint: .cyan)
                     }
+                }
+
+                if let paceChart {
+                    Divider()
+                    QuotaPaceChart(data: paceChart, tint: .blue)
                 }
 
                 Divider()

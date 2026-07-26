@@ -842,6 +842,365 @@ struct PaceCollectingLine: View {
     }
 }
 
+struct QuotaPaceChart: View {
+    let data: QuotaPaceChartData
+    let tint: Color
+
+    @Environment(\.appAppearance) private var appearance
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let yTicks = [100, 75, 50, 25, 0]
+    private let xTickCount = 5
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(data.quotaLabel) pace")
+                    .font(.caption2.weight(.semibold))
+                Spacer()
+                Text("\(Int(data.currentPercentRemaining.rounded()))% remaining")
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(markerColor)
+            }
+
+            HStack(spacing: 13) {
+                chartLegend(title: "Target", color: .green, dashed: true)
+                chartLegend(title: "Actual", color: tint, dashed: false)
+                chartLegend(title: "Current", color: projectionColor, dashed: true)
+                if data.historicalPercentUsedPerDay != nil {
+                    chartLegend(title: "Historical", color: .secondary, dashed: true)
+                }
+            }
+
+            GeometryReader { geometry in
+                let plot = CGRect(
+                    x: 31,
+                    y: 28,
+                    width: max(1, geometry.size.width - 38),
+                    height: max(1, geometry.size.height - 50)
+                )
+
+                ZStack {
+                    Canvas { context, _ in
+                        drawGrid(in: &context, plot: plot)
+                        drawTarget(in: &context, plot: plot)
+                        drawActual(in: &context, plot: plot)
+                        drawForecasts(in: &context, plot: plot)
+                    }
+
+                    ForEach(yTicks, id: \.self) { tick in
+                        Text("\(tick)%")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(Color.secondary.opacity(0.78))
+                            .position(
+                                x: 13,
+                                y: yPosition(percentRemaining: Double(tick), plot: plot)
+                            )
+                    }
+
+                    ForEach(0..<xTickCount, id: \.self) { index in
+                        Text(xAxisLabel(at: index))
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(Color.secondary.opacity(0.78))
+                            .lineLimit(1)
+                            .position(
+                                x: plot.minX + plot.width * CGFloat(index) / CGFloat(xTickCount - 1),
+                                y: plot.maxY + 13
+                            )
+                    }
+
+                    currentMarker(in: plot)
+                }
+            }
+            .frame(height: 162)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityText)
+        }
+    }
+
+    private func chartLegend(title: String, color: Color, dashed: Bool) -> some View {
+        HStack(spacing: 5) {
+            Canvas { context, size in
+                var line = Path()
+                line.move(to: CGPoint(x: 0, y: size.height / 2))
+                line.addLine(to: CGPoint(x: size.width, y: size.height / 2))
+                context.stroke(
+                    line,
+                    with: .color(color),
+                    style: StrokeStyle(
+                        lineWidth: 1.5,
+                        dash: dashed ? [3, 2] : []
+                    )
+                )
+            }
+            .frame(width: 16, height: 6)
+
+            Text(title)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func drawGrid(in context: inout GraphicsContext, plot: CGRect) {
+        for tick in yTicks {
+            let y = yPosition(percentRemaining: Double(tick), plot: plot)
+            var line = Path()
+            line.move(to: CGPoint(x: plot.minX, y: y))
+            line.addLine(to: CGPoint(x: plot.maxX, y: y))
+            context.stroke(
+                line,
+                with: .color(Color.secondary.opacity(0.16)),
+                style: StrokeStyle(lineWidth: 0.7, dash: [2, 3])
+            )
+        }
+
+        for index in 0..<xTickCount {
+            let x = plot.minX + plot.width * CGFloat(index) / CGFloat(xTickCount - 1)
+            var line = Path()
+            line.move(to: CGPoint(x: x, y: plot.minY))
+            line.addLine(to: CGPoint(x: x, y: plot.maxY))
+            context.stroke(
+                line,
+                with: .color(Color.secondary.opacity(0.12)),
+                style: StrokeStyle(lineWidth: 0.7, dash: [2, 3])
+            )
+        }
+    }
+
+    private func drawTarget(in context: inout GraphicsContext, plot: CGRect) {
+        var target = Path()
+        target.move(to: point(date: data.cycleStart, percentUsed: 0, plot: plot))
+        let endpoint = point(
+            date: data.resetAt,
+            percentUsed: 100 - data.safetyBufferPercent,
+            plot: plot
+        )
+        target.addLine(to: endpoint)
+        context.stroke(
+            target,
+            with: .color(Color.green.opacity(0.9)),
+            style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])
+        )
+        context.fill(
+            Path(ellipseIn: CGRect(x: endpoint.x - 3, y: endpoint.y - 3, width: 6, height: 6)),
+            with: .color(.green)
+        )
+    }
+
+    private func drawActual(in context: inout GraphicsContext, plot: CGRect) {
+        let points = actualSamples.map {
+            point(date: $0.timestamp, percentUsed: $0.percentUsed, plot: plot)
+        }
+        guard let first = points.first else { return }
+
+        if points.count > 1 {
+            var actual = Path()
+            actual.move(to: first)
+            var previous = first
+            for point in points.dropFirst() {
+                actual.addLine(to: CGPoint(x: point.x, y: previous.y))
+                actual.addLine(to: point)
+                previous = point
+            }
+            context.stroke(
+                actual,
+                with: .color(tint),
+                style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+            )
+        }
+    }
+
+    private func drawForecasts(in context: inout GraphicsContext, plot: CGRect) {
+        drawForecast(
+            rate: data.currentPercentUsedPerDay,
+            color: projectionColor,
+            dash: [7, 3],
+            lineWidth: 2,
+            context: &context,
+            plot: plot
+        )
+        if let historicalRate = data.historicalPercentUsedPerDay {
+            drawForecast(
+                rate: historicalRate,
+                color: .secondary,
+                dash: [2, 3],
+                lineWidth: 1.3,
+                context: &context,
+                plot: plot
+            )
+        }
+
+        var nowRule = Path()
+        let nowX = currentPoint(in: plot).x
+        nowRule.move(to: CGPoint(x: nowX, y: plot.minY))
+        nowRule.addLine(to: CGPoint(x: nowX, y: plot.maxY))
+        context.stroke(
+            nowRule,
+            with: .color(Color.secondary.opacity(0.28)),
+            style: StrokeStyle(lineWidth: 0.8, dash: [2, 3])
+        )
+    }
+
+    private func drawForecast(
+        rate: Double,
+        color: Color,
+        dash: [CGFloat],
+        lineWidth: CGFloat,
+        context: inout GraphicsContext,
+        plot: CGRect
+    ) {
+        let end = forecastEndPoint(rate: rate)
+        var forecast = Path()
+        forecast.move(to: currentPoint(in: plot))
+        let endpoint = point(date: end.date, percentUsed: end.percentUsed, plot: plot)
+        forecast.addLine(to: endpoint)
+        context.stroke(
+            forecast,
+            with: .color(color.opacity(0.9)),
+            style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, dash: dash)
+        )
+        context.fill(
+            Path(ellipseIn: CGRect(x: endpoint.x - 2.5, y: endpoint.y - 2.5, width: 5, height: 5)),
+            with: .color(color)
+        )
+    }
+
+    private func currentMarker(in plot: CGRect) -> some View {
+        let current = currentPoint(in: plot)
+        let labelX = min(max(current.x, plot.minX + 23), plot.maxX - 23)
+
+        return ZStack {
+            Circle()
+                .fill(appearance.cardBackground(for: colorScheme))
+                .frame(width: 10, height: 10)
+                .overlay(Circle().stroke(markerColor, lineWidth: 2))
+                .position(current)
+
+            Text("Now")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Color.primary.opacity(0.86))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(
+                    Capsule()
+                        .fill(appearance.cardBackground(for: colorScheme))
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 0.5)
+                        )
+                )
+                .position(x: labelX, y: 11)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var actualSamples: [PaceSample] {
+        let local = data.samples
+            .filter { $0.timestamp >= data.cycleStart && $0.timestamp <= data.resetAt }
+            .sorted { $0.timestamp < $1.timestamp }
+
+        var samples = [
+            PaceSample(percentUsed: 0, timestamp: data.cycleStart)
+        ] + local
+        let currentDate = observationDate
+        if let last = samples.last, abs(last.timestamp.timeIntervalSince(currentDate)) < 1 {
+            samples[samples.count - 1] = PaceSample(
+                percentUsed: data.currentPercentUsed,
+                timestamp: currentDate
+            )
+        } else {
+            samples.append(
+                PaceSample(percentUsed: data.currentPercentUsed, timestamp: currentDate)
+            )
+        }
+        return samples
+    }
+
+    private func forecastEndPoint(rate: Double) -> (date: Date, percentUsed: Double) {
+        guard rate > 0 else {
+            return (data.resetAt, data.currentPercentUsed)
+        }
+        let remaining = data.currentPercentRemaining
+        let exhaustionDate = observationDate.addingTimeInterval(remaining / rate * 86_400)
+        if exhaustionDate < data.resetAt {
+            return (exhaustionDate, 100)
+        }
+        let daysLeft = max(data.resetAt.timeIntervalSince(observationDate) / 86_400, 0)
+        return (data.resetAt, min(100, data.currentPercentUsed + rate * daysLeft))
+    }
+
+    private var projectionColor: Color {
+        if data.projection?.willExhaustBeforeReset == true {
+            return .red
+        }
+        if let historicalRate = data.historicalPercentUsedPerDay,
+           data.currentPercentUsedPerDay > historicalRate {
+            return .red
+        }
+        return tint
+    }
+
+    private var markerColor: Color {
+        projectionColor
+    }
+
+    private func currentPoint(in plot: CGRect) -> CGPoint {
+        point(
+            date: observationDate,
+            percentUsed: data.currentPercentUsed,
+            plot: plot
+        )
+    }
+
+    private var observationDate: Date {
+        let latest = data.samples.max(by: { $0.timestamp < $1.timestamp })?.timestamp
+            ?? data.now
+        return min(max(latest, data.cycleStart), data.resetAt)
+    }
+
+    private func point(date: Date, percentUsed: Double, plot: CGRect) -> CGPoint {
+        let duration = data.resetAt.timeIntervalSince(data.cycleStart)
+        let elapsed = date.timeIntervalSince(data.cycleStart)
+        let xFraction = max(0, min(1, elapsed / max(duration, 1)))
+        let yFraction = max(0, min(1, percentUsed / 100))
+        return CGPoint(
+            x: plot.minX + plot.width * CGFloat(xFraction),
+            y: plot.minY + plot.height * CGFloat(yFraction)
+        )
+    }
+
+    private func yPosition(percentRemaining: Double, plot: CGRect) -> CGFloat {
+        plot.minY + plot.height * CGFloat((100 - percentRemaining) / 100)
+    }
+
+    private func xAxisLabel(at index: Int) -> String {
+        let fraction = Double(index) / Double(xTickCount - 1)
+        let date = data.cycleStart.addingTimeInterval(
+            data.resetAt.timeIntervalSince(data.cycleStart) * fraction
+        )
+        let duration = data.resetAt.timeIntervalSince(data.cycleStart)
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        if duration <= 2 * 86_400 {
+            formatter.setLocalizedDateFormatFromTemplate("HH:mm")
+        } else if duration <= 10 * 86_400 {
+            formatter.setLocalizedDateFormatFromTemplate("EEE")
+        } else {
+            formatter.setLocalizedDateFormatFromTemplate("MMM d")
+        }
+        return formatter.string(from: date)
+    }
+
+    private var accessibilityText: String {
+        let remaining = Int(data.currentPercentRemaining.rounded())
+        let reset = UsageFormatting.resetText(date: data.resetAt, now: data.now)
+        let projection = data.projection?.summaryText ?? "Projection is still collecting data"
+        return "\(data.quotaLabel) quota pace. \(remaining) percent remaining. Resets \(reset). \(projection)."
+    }
+}
+
 enum LimitLensArtwork {
     static let image: NSImage = {
         let bundledURL = Bundle.main.url(forResource: "LimitLens", withExtension: "icns")
