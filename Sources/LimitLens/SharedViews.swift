@@ -850,7 +850,6 @@ struct QuotaPaceChart: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private let yTicks = [100, 75, 50, 25, 0]
-    private let xTickCount = 5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -899,13 +898,13 @@ struct QuotaPaceChart: View {
                             )
                     }
 
-                    ForEach(0..<xTickCount, id: \.self) { index in
-                        Text(xAxisLabel(at: index))
+                    ForEach(Array(xAxisDates.enumerated()), id: \.offset) { _, date in
+                        Text(xAxisLabel(for: date))
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(Color.secondary.opacity(0.78))
                             .lineLimit(1)
                             .position(
-                                x: plot.minX + plot.width * CGFloat(index) / CGFloat(xTickCount - 1),
+                                x: xPosition(date: date, plot: plot),
                                 y: plot.maxY + 13
                             )
                     }
@@ -955,8 +954,8 @@ struct QuotaPaceChart: View {
             )
         }
 
-        for index in 0..<xTickCount {
-            let x = plot.minX + plot.width * CGFloat(index) / CGFloat(xTickCount - 1)
+        for date in xAxisDates {
+            let x = xPosition(date: date, plot: plot)
             var line = Path()
             line.move(to: CGPoint(x: x, y: plot.minY))
             line.addLine(to: CGPoint(x: x, y: plot.maxY))
@@ -1033,7 +1032,7 @@ struct QuotaPaceChart: View {
 
         var nowRule = Path()
         let nowX = currentPoint(in: plot).x
-        nowRule.move(to: CGPoint(x: nowX, y: plot.minY))
+        nowRule.move(to: CGPoint(x: nowX, y: plot.minY - 7))
         nowRule.addLine(to: CGPoint(x: nowX, y: plot.maxY))
         context.stroke(
             nowRule,
@@ -1050,15 +1049,30 @@ struct QuotaPaceChart: View {
         context: inout GraphicsContext,
         plot: CGRect
     ) {
-        let end = forecastEndPoint(rate: rate)
+        let forecastPoints = forecastPoints(rate: rate)
+        guard let first = forecastPoints.first else { return }
         var forecast = Path()
-        forecast.move(to: currentPoint(in: plot))
-        let endpoint = point(date: end.date, percentUsed: end.percentUsed, plot: plot)
-        forecast.addLine(to: endpoint)
+        forecast.move(to: point(date: first.date, percentUsed: first.percentUsed, plot: plot))
+        for forecastPoint in forecastPoints.dropFirst() {
+            forecast.addLine(
+                to: point(
+                    date: forecastPoint.date,
+                    percentUsed: forecastPoint.percentUsed,
+                    plot: plot
+                )
+            )
+        }
         context.stroke(
             forecast,
             with: .color(color.opacity(0.9)),
             style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, dash: dash)
+        )
+
+        let markedPoint = forecastPoints[forecastPoints.count - 1]
+        let endpoint = point(
+            date: markedPoint.date,
+            percentUsed: markedPoint.percentUsed,
+            plot: plot
         )
         context.fill(
             Path(ellipseIn: CGRect(x: endpoint.x - 2.5, y: endpoint.y - 2.5, width: 5, height: 5)),
@@ -1068,29 +1082,32 @@ struct QuotaPaceChart: View {
 
     private func currentMarker(in plot: CGRect) -> some View {
         let current = currentPoint(in: plot)
-        let labelX = min(max(current.x, plot.minX + 23), plot.maxX - 23)
 
         return ZStack {
             Circle()
-                .fill(appearance.cardBackground(for: colorScheme))
+                .fill(markerColor)
                 .frame(width: 10, height: 10)
-                .overlay(Circle().stroke(markerColor, lineWidth: 2))
+                .overlay(
+                    Circle()
+                        .stroke(appearance.cardBackground(for: colorScheme), lineWidth: 1.5)
+                )
                 .position(current)
 
-            Text("Now")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Color.primary.opacity(0.86))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
+            Text("NOW")
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .tracking(0.5)
+                .foregroundStyle(markerColor)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
                 .background(
                     Capsule()
                         .fill(appearance.cardBackground(for: colorScheme))
                         .overlay(
                             Capsule()
-                                .stroke(Color.secondary.opacity(0.2), lineWidth: 0.5)
+                                .stroke(markerColor.opacity(0.38), lineWidth: 0.75)
                         )
                 )
-                .position(x: labelX, y: 11)
+                .position(x: current.x, y: 10)
         }
         .allowsHitTesting(false)
     }
@@ -1117,17 +1134,22 @@ struct QuotaPaceChart: View {
         return samples
     }
 
-    private func forecastEndPoint(rate: Double) -> (date: Date, percentUsed: Double) {
+    private func forecastPoints(rate: Double) -> [(date: Date, percentUsed: Double)] {
+        let current = (date: observationDate, percentUsed: data.currentPercentUsed)
         guard rate > 0 else {
-            return (data.resetAt, data.currentPercentUsed)
+            return [current, (data.resetAt, data.currentPercentUsed)]
         }
-        let remaining = data.currentPercentRemaining
-        let exhaustionDate = observationDate.addingTimeInterval(remaining / rate * 86_400)
+        let exhaustionDate = observationDate.addingTimeInterval(
+            data.currentPercentRemaining / rate * 86_400
+        )
         if exhaustionDate < data.resetAt {
-            return (exhaustionDate, 100)
+            return [current, (exhaustionDate, 100)]
         }
         let daysLeft = max(data.resetAt.timeIntervalSince(observationDate) / 86_400, 0)
-        return (data.resetAt, min(100, data.currentPercentUsed + rate * daysLeft))
+        return [
+            current,
+            (data.resetAt, min(100, data.currentPercentUsed + rate * daysLeft))
+        ]
     }
 
     private var projectionColor: Color {
@@ -1174,19 +1196,43 @@ struct QuotaPaceChart: View {
         plot.minY + plot.height * CGFloat((100 - percentRemaining) / 100)
     }
 
-    private func xAxisLabel(at index: Int) -> String {
-        let fraction = Double(index) / Double(xTickCount - 1)
-        let date = data.cycleStart.addingTimeInterval(
-            data.resetAt.timeIntervalSince(data.cycleStart) * fraction
-        )
-        let duration = data.resetAt.timeIntervalSince(data.cycleStart)
+    private func xPosition(date: Date, plot: CGRect) -> CGFloat {
+        let duration = max(data.resetAt.timeIntervalSince(data.cycleStart), 1)
+        let elapsed = date.timeIntervalSince(data.cycleStart)
+        let fraction = max(0, min(1, elapsed / duration))
+        return plot.minX + plot.width * CGFloat(fraction)
+    }
 
+    private var xAxisDates: [Date] {
+        let duration = data.resetAt.timeIntervalSince(data.cycleStart)
+        if duration > 2 * 86_400, duration <= 10 * 86_400 {
+            var dates = [data.cycleStart]
+            var date = data.cycleStart.addingTimeInterval(86_400)
+            while date < data.resetAt {
+                dates.append(date)
+                date = date.addingTimeInterval(86_400)
+            }
+            dates.append(data.resetAt)
+            return dates
+        }
+
+        return (0..<5).map { index in
+            data.cycleStart.addingTimeInterval(duration * Double(index) / 4)
+        }
+    }
+
+    private func xAxisLabel(for date: Date) -> String {
+        let duration = data.resetAt.timeIntervalSince(data.cycleStart)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         if duration <= 2 * 86_400 {
             formatter.setLocalizedDateFormatFromTemplate("HH:mm")
         } else if duration <= 10 * 86_400 {
-            formatter.setLocalizedDateFormatFromTemplate("EEE")
+            if date == data.cycleStart || date == data.resetAt {
+                formatter.setLocalizedDateFormatFromTemplate("MMM d")
+            } else {
+                formatter.setLocalizedDateFormatFromTemplate("EEE")
+            }
         } else {
             formatter.setLocalizedDateFormatFromTemplate("MMM d")
         }
