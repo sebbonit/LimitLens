@@ -78,29 +78,19 @@ extension UsageViewModel {
         }
 
         let samples = paceSampleHistory[tab] ?? []
-        let elapsedDays = max(now.timeIntervalSince(cycleStart) / 86_400, 1 / 24)
-        let windowRate = max(percentUsed / elapsedDays, 0)
-        let recentRate: Double
-        if let first = samples.first,
-           let last = samples.last,
-           last.timestamp > first.timestamp {
-            let sampleDays = last.timestamp.timeIntervalSince(first.timestamp) / 86_400
-            recentRate = max((last.percentUsed - first.percentUsed) / sampleDays, 0)
-        } else {
-            recentRate = windowRate
-        }
-        let observedRate = samples.count > 1
-            ? 0.7 * recentRate + 0.3 * windowRate
-            : windowRate
+        let estimate = paceEstimates[tab] ?? UsagePaceProjection.estimate(
+            samples: samples,
+            currentPercentUsed: percentUsed,
+            cycleStart: cycleStart,
+            now: now,
+            resetAt: resetAt
+        )
         let historyProvider: QuotaUsageHistoryProvider = tab == .codex ? .codex : .cursor
         let historicalRate = QuotaUsageHistoryCalculator.historicalPercentUsedPerDay(
             provider: historyProvider,
-            excludingResetAt: resetAt,
+            before: cycleStart,
             in: quotaUsageHistoryStore.payload.samples
         )
-        let projectedRate = historicalRate.map { 0.75 * observedRate + 0.25 * $0 }
-            ?? observedRate
-
         return QuotaPaceChartData(
             quotaLabel: summary.quotaLabel ?? "Quota",
             currentPercentUsed: percentUsed,
@@ -108,8 +98,8 @@ extension UsageViewModel {
             resetAt: resetAt,
             now: now,
             samples: samples,
-            projection: paceProjections[tab],
-            currentPercentUsedPerDay: projectedRate,
+            projection: estimate.projection,
+            currentPercentUsedPerDay: estimate.percentUsedPerDay,
             historicalPercentUsedPerDay: historicalRate,
             safetyBufferPercent: 3
         )

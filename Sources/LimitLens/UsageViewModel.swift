@@ -33,6 +33,7 @@ final class UsageViewModel: ObservableObject {
         lastClockMinute = clockMinute(containing: date)
     }
     @Published private(set) var lastFetchAt: [ProviderTab: Date] = [:]
+    @Published private(set) var paceEstimates: [ProviderTab: PaceEstimate] = [:]
     @Published private(set) var paceProjections: [ProviderTab: PaceProjection] = [:]
     @Published private(set) var collectingPaceData: Set<ProviderTab> = []
     @Published private(set) var lastErrors: [ProviderTab: String] = [:]
@@ -631,6 +632,7 @@ final class UsageViewModel: ObservableObject {
         if !configuration.providers.codex.isEnabled {
             state = .disabled
             snapshot = nil
+            paceEstimates[.codex] = nil
             paceProjections[.codex] = nil
             paceSampleHistory[.codex] = nil
             collectingPaceData.remove(.codex)
@@ -639,6 +641,7 @@ final class UsageViewModel: ObservableObject {
         if !configuration.providers.cursor.isEnabled {
             cursorState = .disabled
             cursorSnapshot = nil
+            paceEstimates[.cursor] = nil
             paceProjections[.cursor] = nil
             paceSampleHistory[.cursor] = nil
             collectingPaceData.remove(.cursor)
@@ -647,6 +650,7 @@ final class UsageViewModel: ObservableObject {
         if !configuration.providers.devin.isEnabled {
             desktopQuotaState = .disabled
             desktopQuotaSnapshots = []
+            paceEstimates[.devin] = nil
             paceProjections[.devin] = nil
             paceSampleHistory[.devin] = nil
             collectingPaceData.remove(.devin)
@@ -655,6 +659,7 @@ final class UsageViewModel: ObservableObject {
         if !configuration.providers.openCodeGo.isEnabled {
             openCodeGoState = .disabled
             openCodeGoSnapshot = nil
+            paceEstimates[.openCodeGo] = nil
             paceProjections[.openCodeGo] = nil
             paceSampleHistory[.openCodeGo] = nil
             collectingPaceData.remove(.openCodeGo)
@@ -667,6 +672,7 @@ final class UsageViewModel: ObservableObject {
         guard let summary = providerSummaries.first(where: { $0.tab == tab }),
               let percent = summary.percentUsed else {
             paceSampleHistory[tab] = nil
+            paceEstimates[tab] = nil
             paceProjections[tab] = nil
             collectingPaceData.remove(tab)
             return
@@ -675,6 +681,7 @@ final class UsageViewModel: ObservableObject {
         let now = Date()
         var history: [PaceSample]
         if let provider = quotaUsageHistoryProvider(for: tab),
+           let cycleStart = summary.cycleStart,
            let resetAt = summary.resetAt {
             quotaUsageHistoryStore.record(
                 QuotaUsageHistorySample(
@@ -687,6 +694,7 @@ final class UsageViewModel: ObservableObject {
             )
             history = QuotaUsageHistoryCalculator.currentCycleSamples(
                 provider: provider,
+                cycleStart: cycleStart,
                 resetsAt: resetAt,
                 in: quotaUsageHistoryStore.payload.samples
             ).map {
@@ -704,12 +712,15 @@ final class UsageViewModel: ObservableObject {
         }
         paceSampleHistory[tab] = history
 
-        let projection = UsagePaceProjection.project(
-            samples: Array(history.suffix(UsagePaceProjection.maxSampleHistory)),
+        let estimate = UsagePaceProjection.estimate(
+            samples: history,
+            currentPercentUsed: percent,
+            cycleStart: summary.cycleStart,
             now: now,
             resetAt: summary.resetAt
         )
-        if let projection {
+        paceEstimates[tab] = estimate
+        if let projection = estimate.projection {
             paceProjections[tab] = projection
             collectingPaceData.remove(tab)
         } else {

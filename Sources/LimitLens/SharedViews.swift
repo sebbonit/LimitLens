@@ -1016,6 +1016,8 @@ struct QuotaPaceChart: View {
             color: projectionColor,
             dash: [7, 3],
             lineWidth: 2,
+            startDate: observationDate,
+            startPercentUsed: data.currentPercentUsed,
             context: &context,
             plot: plot
         )
@@ -1025,6 +1027,8 @@ struct QuotaPaceChart: View {
                 color: .secondary,
                 dash: [2, 3],
                 lineWidth: 1.3,
+                startDate: data.cycleStart,
+                startPercentUsed: 0,
                 context: &context,
                 plot: plot
             )
@@ -1046,10 +1050,16 @@ struct QuotaPaceChart: View {
         color: Color,
         dash: [CGFloat],
         lineWidth: CGFloat,
+        startDate: Date,
+        startPercentUsed: Double,
         context: inout GraphicsContext,
         plot: CGRect
     ) {
-        let forecastPoints = forecastPoints(rate: rate)
+        let forecastPoints = forecastPoints(
+            rate: rate,
+            startDate: startDate,
+            startPercentUsed: startPercentUsed
+        )
         guard let first = forecastPoints.first else { return }
         var forecast = Path()
         forecast.move(to: point(date: first.date, percentUsed: first.percentUsed, plot: plot))
@@ -1134,21 +1144,25 @@ struct QuotaPaceChart: View {
         return samples
     }
 
-    private func forecastPoints(rate: Double) -> [(date: Date, percentUsed: Double)] {
-        let current = (date: observationDate, percentUsed: data.currentPercentUsed)
+    private func forecastPoints(
+        rate: Double,
+        startDate: Date,
+        startPercentUsed: Double
+    ) -> [(date: Date, percentUsed: Double)] {
+        let current = (date: startDate, percentUsed: startPercentUsed)
         guard rate > 0 else {
-            return [current, (data.resetAt, data.currentPercentUsed)]
+            return [current, (data.resetAt, startPercentUsed)]
         }
-        let exhaustionDate = observationDate.addingTimeInterval(
-            data.currentPercentRemaining / rate * 86_400
+        let exhaustionDate = startDate.addingTimeInterval(
+            (100 - startPercentUsed) / rate * 86_400
         )
         if exhaustionDate < data.resetAt {
             return [current, (exhaustionDate, 100)]
         }
-        let daysLeft = max(data.resetAt.timeIntervalSince(observationDate) / 86_400, 0)
+        let daysLeft = max(data.resetAt.timeIntervalSince(startDate) / 86_400, 0)
         return [
             current,
-            (data.resetAt, min(100, data.currentPercentUsed + rate * daysLeft))
+            (data.resetAt, min(100, startPercentUsed + rate * daysLeft))
         ]
     }
 
