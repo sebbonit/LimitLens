@@ -4,6 +4,91 @@ import Testing
 
 @Suite("Usage pace projection")
 struct UsagePaceProjectionTests {
+    @Test("Unified estimate drives projection with the same daily rate")
+    func unifiedEstimateUsesOneRate() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let cycleStart = now.addingTimeInterval(-2 * 86_400)
+        let resetAt = now.addingTimeInterval(3 * 86_400)
+        let samples = [
+            PaceSample(percentUsed: 10, timestamp: now.addingTimeInterval(-86_400)),
+            PaceSample(percentUsed: 20, timestamp: now.addingTimeInterval(-43_200)),
+            PaceSample(percentUsed: 25, timestamp: now)
+        ]
+
+        let estimate = UsagePaceProjection.estimate(
+            samples: samples,
+            currentPercentUsed: 25,
+            cycleStart: cycleStart,
+            now: now,
+            resetAt: resetAt
+        )
+
+        let expectedAtReset = min(100, 25 + estimate.percentUsedPerDay * 3)
+        #expect(estimate.projection != nil)
+        #expect(abs(estimate.projection!.projectedPercentAtReset! - expectedAtReset) < 0.0001)
+    }
+
+    @Test("Sparse active-cycle data uses a low-confidence whole-cycle pace")
+    func sparseDataUsesWholeCyclePace() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let cycleStart = now.addingTimeInterval(-2 * 86_400)
+        let resetAt = now.addingTimeInterval(5 * 86_400)
+
+        let estimate = UsagePaceProjection.estimate(
+            samples: [PaceSample(percentUsed: 10, timestamp: now)],
+            currentPercentUsed: 10,
+            cycleStart: cycleStart,
+            now: now,
+            resetAt: resetAt
+        )
+
+        #expect(estimate.percentUsedPerDay == 5)
+        #expect(estimate.confidence == .low)
+        #expect(estimate.projection?.summaryText.contains("spare") == true)
+    }
+
+    @Test("A short usage burst cannot fully replace the whole-cycle pace")
+    func burstKeepsWholeCycleAnchor() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let cycleStart = now.addingTimeInterval(-2 * 86_400)
+        let resetAt = now.addingTimeInterval(5 * 86_400)
+        let samples = [
+            PaceSample(percentUsed: 10, timestamp: now.addingTimeInterval(-600)),
+            PaceSample(percentUsed: 20, timestamp: now)
+        ]
+
+        let estimate = UsagePaceProjection.estimate(
+            samples: samples,
+            currentPercentUsed: 20,
+            cycleStart: cycleStart,
+            now: now,
+            resetAt: resetAt
+        )
+
+        let wholeCycleRate = 10.0
+        let rawBurstRate = 1_440.0
+        #expect(estimate.percentUsedPerDay > wholeCycleRate)
+        #expect(estimate.percentUsedPerDay < rawBurstRate)
+        #expect(estimate.confidence == .low)
+    }
+
+    @Test("Normal weekly movement is not mislabeled as stable")
+    func weeklyMovementIsNotStable() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let samples = [
+            PaceSample(percentUsed: 10, timestamp: now.addingTimeInterval(-86_400)),
+            PaceSample(percentUsed: 15, timestamp: now)
+        ]
+
+        let result = UsagePaceProjection.project(
+            samples: samples,
+            now: now,
+            resetAt: now.addingTimeInterval(5 * 86_400)
+        )
+
+        #expect(result?.summaryText != "Usage stable")
+    }
+
     @Test("Returns nil when fewer than two samples")
     func returnsNilForEmptyOrSingleSample() {
         let now = Date()
@@ -128,14 +213,13 @@ struct UsagePaceProjectionTests {
         #expect(result!.summaryText.contains("30%"))
     }
 
-    @Test("Least-squares slope smooths out a single bursty sample")
+    @Test("Observed-span rate smooths out a single bursty sample")
     func smoothsBurstySample() {
         let now = Date()
         // Five samples over 50 minutes at a steady 0.2%/min, plus one bursty
         // jump in the last 10-minute interval. A two-point differencing would
-        // see the burst (1.0%/min) and project imminent exhaustion. The
-        // least-squares fit over all six points should reflect the calmer
-        // average trend and project spare at reset.
+        // see only the burst (1.0%/min) and project imminent exhaustion. The
+        // full observed span should reflect the calmer average trend.
         let samples = [
             PaceSample(percentUsed: 50, timestamp: now.addingTimeInterval(-3000)),
             PaceSample(percentUsed: 52, timestamp: now.addingTimeInterval(-2400)),
@@ -144,7 +228,7 @@ struct UsagePaceProjectionTests {
             PaceSample(percentUsed: 58, timestamp: now.addingTimeInterval(-600)),
             PaceSample(percentUsed: 68, timestamp: now)
         ]
-        // Reset in 120 min. Slope via least-squares ≈ 0.33%/min.
+        // Reset in 120 min. The observed-span rate is 0.36%/min.
         // projected = 68 + 0.33*120 ≈ 108 → capped at 100 → exhausts before reset.
         // That's still exhausting, so use a longer reset window to verify spare.
         let result = UsagePaceProjection.project(samples: samples, now: now, resetAt: now.addingTimeInterval(600))

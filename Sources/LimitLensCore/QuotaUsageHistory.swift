@@ -43,6 +43,7 @@ public struct QuotaUsageHistoryPayload: Codable, Equatable, Sendable {
 
 public enum QuotaUsageHistoryCalculator {
     public static let retention: TimeInterval = 90 * 86_400
+    private static let minimumHistoricalElapsedSeconds: TimeInterval = 6 * 3_600
 
     public static func normalized(
         _ samples: [QuotaUsageHistorySample],
@@ -76,22 +77,32 @@ public enum QuotaUsageHistoryCalculator {
 
     public static func currentCycleSamples(
         provider: QuotaUsageHistoryProvider,
+        cycleStart: Date,
         resetsAt: Date,
         in samples: [QuotaUsageHistorySample]
     ) -> [QuotaUsageHistorySample] {
         samples
-            .filter { $0.provider == provider && $0.resetsAt == resetsAt }
+            .filter {
+                $0.provider == provider
+                    && $0.observedAt >= cycleStart
+                    && $0.observedAt <= resetsAt
+                    && $0.resetsAt > cycleStart
+            }
             .sorted { $0.observedAt < $1.observedAt }
     }
 
-    /// Average percentage used per day across previously observed cycles.
+    /// Average percentage used per day across previously completed cycles.
     public static func historicalPercentUsedPerDay(
         provider: QuotaUsageHistoryProvider,
-        excludingResetAt currentResetAt: Date,
+        before currentCycleStart: Date,
         in samples: [QuotaUsageHistorySample]
     ) -> Double? {
         let previous = samples.filter {
-            $0.provider == provider && $0.resetsAt != currentResetAt
+            // Reset timestamps can shift slightly between provider refreshes.
+            // A cycle is historical only when it ended before the active
+            // cycle began; this avoids classifying active-cycle variants as
+            // previous cycles.
+            $0.provider == provider && $0.resetsAt <= currentCycleStart
         }
         let rates = Dictionary(grouping: previous, by: \.resetsAt).values.compactMap { cycle -> Double? in
             let ordered = cycle.sorted { $0.observedAt < $1.observedAt }
@@ -101,7 +112,9 @@ public enum QuotaUsageHistoryCalculator {
                 return nil
             }
             let elapsedDays = last.observedAt.timeIntervalSince(first.observedAt) / 86_400
-            guard elapsedDays > 0 else { return nil }
+            guard last.observedAt.timeIntervalSince(first.observedAt) >= minimumHistoricalElapsedSeconds else {
+                return nil
+            }
             return max((last.percentUsed - first.percentUsed) / elapsedDays, 0)
         }
         guard !rates.isEmpty else { return nil }

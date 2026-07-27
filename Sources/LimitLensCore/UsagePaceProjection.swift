@@ -29,41 +29,272 @@ public struct PaceProjection: Equatable, Sendable {
     }
 }
 
-public enum UsagePaceProjection {
-    /// Minimum elapsed seconds between the oldest and newest samples to produce
-    /// a meaningful projection. Avoids noisy projections from sub-minute spans.
-    private static let minimumElapsedSeconds: TimeInterval = 30
+public enum PaceEstimateConfidence: String, Equatable, Sendable {
+    case collecting
+    case low
+    case medium
+    case high
+}
 
-    /// Maximum number of samples retained per provider. Older samples are
-    /// discarded so the trend reflects recent behavior rather than the entire
-    /// session.
-    public static let maxSampleHistory = 6
+/// One shared pace result for every presentation of the active quota.
+///
+/// `percentUsedPerDay` drives the chart while `projection` drives the status
+/// text, ensuring both surfaces always describe the same underlying rate.
+public struct PaceEstimate: Equatable, Sendable {
+    public let percentUsedPerDay: Double
+    public let projection: PaceProjection?
+    public let confidence: PaceEstimateConfidence
+
+    public init(
+        percentUsedPerDay: Double,
+        projection: PaceProjection?,
+        confidence: PaceEstimateConfidence
+    ) {
+        self.percentUsedPerDay = percentUsedPerDay
+        self.projection = projection
+        self.confidence = confidence
+    }
+}
+
+public enum UsagePaceProjection {
+    /// A short span is useful for drawing actual usage, but too noisy to
+    /// extrapolate. Five minutes keeps refresh jitter from creating alerts.
+    private static let minimumRecentElapsedSeconds: TimeInterval = 5 * 60
+
+    /// Whole-cycle rates use at least one hour in their denominator so the
+    /// first tiny usage event of a long cycle cannot imply an absurd daily rate.
+    private static let minimumCycleElapsedSeconds: TimeInterval = 60 * 60
 
     /// A drop larger than this between consecutive samples is treated as a
     /// discontinuity (window rollover, plan change, backend recount). Samples
     /// before the drop are discarded so the slope is not corrupted.
     private static let discontinuityDropPercent: Double = 2
 
+    /// Rates below this amount are indistinguishable from provider rounding
+    /// noise. This is deliberately expressed per day; the old per-minute
+    /// threshold incorrectly called normal weekly usage "stable".
+    private static let stableRatePerDay: Double = 0.05
+
+    public static func estimate(
+        samples: [PaceSample],
+        currentPercentUsed: Double,
+        cycleStart: Date?,
+        now: Date,
+        resetAt: Date?
+    ) -> PaceEstimate {
+        let currentPercent = max(0, min(100, currentPercentUsed))
+        let ordered = normalizedSamples(
+            samples,
+            currentPercentUsed: currentPercent,
+            cycleStart: cycleStart,
+            now: now,
+            resetAt: resetAt
+        )
+        let contiguous = trimmedForDiscontinuity(ordered)
+        let cycleRate = wholeCycleRate(
+            currentPercentUsed: currentPercent,
+            cycleStart: cycleStart,
+            now: now
+        )
+        let recent = recentRate(
+            samples: contiguous,
+            cycleStart: cycleStart,
+            now: now,
+            resetAt: resetAt
+        )
+
+        let rate: Double
+        if let recent, let cycleRate {
+            // Recent behavior gains influence as its time coverage and sample
+            // count improve, but keeps a 20% whole-cycle anchor to avoid a
+            // single burst or idle spell swinging the forecast.
+            rate = recent.rate * recent.weight + cycleRate * (1 - recent.weight)
+        } else {
+            rate = recent?.rate ?? cycleRate ?? 0
+        }
+        let finiteRate = rate.isFinite ? max(rate, 0) : 0
+        let confidence = confidence(
+            recent: recent,
+            hasCycleRate: cycleRate != nil,
+            currentPercentUsed: currentPercent
+        )
+        let paceProjection: PaceProjection?
+        if currentPercent >= 100 {
+            paceProjection = makeProjection(
+                percentUsedPerDay: finiteRate,
+                currentPercentUsed: currentPercent,
+                now: now,
+                resetAt: resetAt
+            )
+        } else if recent != nil || (cycleRate != nil && confidence != .collecting) {
+            paceProjection = makeProjection(
+                percentUsedPerDay: finiteRate,
+                currentPercentUsed: currentPercent,
+                now: now,
+                resetAt: resetAt
+            )
+        } else {
+            paceProjection = nil
+        }
+
+        return PaceEstimate(
+            percentUsedPerDay: finiteRate,
+            projection: paceProjection,
+            confidence: confidence
+        )
+    }
+
+    /// Compatibility entry point for callers without cycle metadata. It uses
+    /// the same estimator, relying solely on the observed sample span.
     public static func project(
         samples: [PaceSample],
         now: Date,
         resetAt: Date?
     ) -> PaceProjection? {
-        guard !samples.isEmpty else { return nil }
+        guard let newest = samples
+            .filter({ $0.percentUsed.isFinite })
+            .max(by: { $0.timestamp < $1.timestamp }) else {
+            return nil
+        }
+        return estimate(
+            samples: samples,
+            currentPercentUsed: newest.percentUsed,
+            cycleStart: nil,
+            now: now,
+            resetAt: resetAt
+        ).projection
+    }
 
-        let trimmed = trimmedForDiscontinuity(samples)
-        guard trimmed.count >= 2 else { return nil }
+    private struct RecentRate {
+        let rate: Double
+        let span: TimeInterval
+        let sampleCount: Int
+        let weight: Double
+        let window: TimeInterval
+    }
 
-        let oldest = trimmed.first!
-        let newest = trimmed.last!
-        let elapsed = newest.timestamp.timeIntervalSince(oldest.timestamp)
-        guard elapsed >= minimumElapsedSeconds else { return nil }
+    private static func normalizedSamples(
+        _ samples: [PaceSample],
+        currentPercentUsed: Double,
+        cycleStart: Date?,
+        now: Date,
+        resetAt: Date?
+    ) -> [PaceSample] {
+        let upperBound = min(now, resetAt ?? now)
+        var ordered = samples
+            .filter {
+                guard $0.percentUsed.isFinite,
+                      (0 ... 100).contains($0.percentUsed),
+                      $0.timestamp <= upperBound else {
+                    return false
+                }
+                if let cycleStart, $0.timestamp < cycleStart {
+                    return false
+                }
+                return true
+            }
+            .sorted { $0.timestamp < $1.timestamp }
 
-        let percentPerMinute = slope(samples: trimmed)
-        let currentPercent = newest.percentUsed
+        let current = PaceSample(percentUsed: currentPercentUsed, timestamp: upperBound)
+        if let last = ordered.last, abs(last.timestamp.timeIntervalSince(upperBound)) < 1 {
+            ordered[ordered.count - 1] = current
+        } else {
+            ordered.append(current)
+        }
+        return ordered
+    }
 
-        // Limit is already exhausted — no projection needed.
-        if currentPercent >= 100 {
+    private static func trimmedForDiscontinuity(_ samples: [PaceSample]) -> [PaceSample] {
+        guard !samples.isEmpty else { return [] }
+        var startIndex = 0
+        for index in 1..<samples.count {
+            let drop = samples[index - 1].percentUsed - samples[index].percentUsed
+            if drop > discontinuityDropPercent {
+                startIndex = index
+            }
+        }
+        return Array(samples[startIndex...])
+    }
+
+    private static func wholeCycleRate(
+        currentPercentUsed: Double,
+        cycleStart: Date?,
+        now: Date
+    ) -> Double? {
+        guard let cycleStart, now > cycleStart else { return nil }
+        let elapsed = max(now.timeIntervalSince(cycleStart), minimumCycleElapsedSeconds)
+        return currentPercentUsed / (elapsed / 86_400)
+    }
+
+    private static func recentRate(
+        samples: [PaceSample],
+        cycleStart: Date?,
+        now: Date,
+        resetAt: Date?
+    ) -> RecentRate? {
+        guard samples.count >= 2 else { return nil }
+        let cycleDuration = resetAt.flatMap { reset -> TimeInterval? in
+            guard let cycleStart, reset > cycleStart else { return nil }
+            return reset.timeIntervalSince(cycleStart)
+        }
+        let maximumWindow: TimeInterval = 24 * 3_600
+        let minimumWindow: TimeInterval = 60 * 60
+        let fallbackCycleDuration: TimeInterval = 7 * 86_400
+        let scaledWindow = (cycleDuration ?? fallbackCycleDuration) * 0.15
+        let window = min(maximumWindow, max(minimumWindow, scaledWindow))
+        let cutoff = now.addingTimeInterval(-window)
+        let inWindow = samples.filter { $0.timestamp >= cutoff }
+        var selected = inWindow
+        if let predecessor = samples.last(where: { $0.timestamp < cutoff }) {
+            selected.insert(predecessor, at: 0)
+        }
+        guard let first = selected.first,
+              let last = selected.last,
+              last.timestamp > first.timestamp else {
+            return nil
+        }
+
+        let span = last.timestamp.timeIntervalSince(first.timestamp)
+        guard span >= minimumRecentElapsedSeconds else { return nil }
+        let delta = max(last.percentUsed - first.percentUsed, 0)
+        let rate = delta / (span / 86_400)
+        let coverage = min(span / window, 1)
+        let density = min(Double(selected.count - 1) / 3, 1)
+        let weight = min(0.8, 0.8 * sqrt(coverage) * (0.5 + 0.5 * density))
+        return RecentRate(
+            rate: rate,
+            span: span,
+            sampleCount: selected.count,
+            weight: weight,
+            window: window
+        )
+    }
+
+    private static func confidence(
+        recent: RecentRate?,
+        hasCycleRate: Bool,
+        currentPercentUsed: Double
+    ) -> PaceEstimateConfidence {
+        if currentPercentUsed >= 100 { return .high }
+        guard let recent else {
+            return hasCycleRate ? .low : .collecting
+        }
+        if recent.sampleCount >= 4, recent.span >= recent.window * 0.5 {
+            return .high
+        }
+        if recent.sampleCount >= 3, recent.span >= 30 * 60 {
+            return .medium
+        }
+        return .low
+    }
+
+    private static func makeProjection(
+        percentUsedPerDay: Double,
+        currentPercentUsed: Double,
+        now: Date,
+        resetAt: Date?
+    ) -> PaceProjection {
+        if currentPercentUsed >= 100 {
             return PaceProjection(
                 summaryText: "Limit exhausted",
                 willExhaustBeforeReset: true,
@@ -72,8 +303,7 @@ public enum UsagePaceProjection {
             )
         }
 
-        // Usage is stable or declining (e.g. after a reset window rolls over)
-        if percentPerMinute <= 0.01 {
+        if percentUsedPerDay <= stableRatePerDay {
             return PaceProjection(
                 summaryText: "Usage stable",
                 willExhaustBeforeReset: false,
@@ -82,13 +312,14 @@ public enum UsagePaceProjection {
             )
         }
 
-        let minutesToExhaustion = (100 - currentPercent) / percentPerMinute
-        let exhaustionDate = now.addingTimeInterval(minutesToExhaustion * 60)
-
+        let daysToExhaustion = (100 - currentPercentUsed) / percentUsedPerDay
+        let exhaustionDate = now.addingTimeInterval(daysToExhaustion * 86_400)
         if let resetAt, resetAt > now {
-            let minutesToReset = resetAt.timeIntervalSince(now) / 60
-            let projectedAtReset = min(100, currentPercent + percentPerMinute * minutesToReset)
-
+            let daysToReset = resetAt.timeIntervalSince(now) / 86_400
+            let projectedAtReset = min(
+                100,
+                currentPercentUsed + percentUsedPerDay * daysToReset
+            )
             if projectedAtReset >= 100 {
                 let timeText = UsageFormatting.timeRemainingText(date: exhaustionDate, now: now)
                 return PaceProjection(
@@ -98,7 +329,6 @@ public enum UsagePaceProjection {
                     projectedPercentAtReset: 100
                 )
             }
-
             let spare = Int((100 - projectedAtReset).rounded())
             return PaceProjection(
                 summaryText: "On pace to reset with ~\(spare)% to spare",
@@ -115,43 +345,5 @@ public enum UsagePaceProjection {
             projectedExhaustionDate: exhaustionDate,
             projectedPercentAtReset: nil
         )
-    }
-
-    /// Discards samples before any discontinuity (a drop exceeding
-    /// `discontinuityDropPercent` between consecutive samples). Only the
-    /// contiguous tail after the last discontinuity is used for the slope.
-    private static func trimmedForDiscontinuity(_ samples: [PaceSample]) -> [PaceSample] {
-        var startIndex = 0
-        for index in 1..<samples.count {
-            let drop = samples[index - 1].percentUsed - samples[index].percentUsed
-            if drop > discontinuityDropPercent {
-                startIndex = index
-            }
-        }
-        return Array(samples[startIndex...])
-    }
-
-    /// Least-squares linear regression slope (percent per minute) over the
-    /// given samples. More robust than differencing only the first and last
-    /// points, since a single bursty sample has less leverage over the fit.
-    private static func slope(samples: [PaceSample]) -> Double {
-        guard samples.count >= 2 else { return 0 }
-
-        let base = samples.first!.timestamp.timeIntervalSince1970
-        let xs = samples.map { ($0.timestamp.timeIntervalSince1970 - base) / 60 }
-        let ys = samples.map { $0.percentUsed }
-
-        let n = Double(samples.count)
-        let meanX = xs.reduce(0, +) / n
-        let meanY = ys.reduce(0, +) / n
-
-        var numerator = 0.0
-        var denominator = 0.0
-        for i in 0..<samples.count {
-            numerator += (xs[i] - meanX) * (ys[i] - meanY)
-            denominator += (xs[i] - meanX) * (xs[i] - meanX)
-        }
-        guard denominator > 0 else { return 0 }
-        return numerator / denominator
     }
 }
