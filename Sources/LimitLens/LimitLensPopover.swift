@@ -565,11 +565,20 @@ struct LimitLensPopover: View {
 
     private var footer: some View {
         HStack {
-            if let fetchedAt = latestFetchDate {
-                Text("Synced \(fetchedAt.formatted(date: .omitted, time: .shortened))")
+            HStack(spacing: 6) {
+                if let fetchedAt = latestFetchDate {
+                    Text("Synced \(fetchedAt.formatted(date: .omitted, time: .shortened))")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.tertiary)
+                    Text("·")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Text(appVersionLabel)
                     .font(.caption2)
-                    .monospacedDigit()
                     .foregroundStyle(.tertiary)
+                    .help("Running version")
             }
             Spacer()
             Button {
@@ -603,6 +612,11 @@ struct LimitLensPopover: View {
             .buttonStyle(.borderless)
             .font(.caption)
         }
+    }
+
+    private var appVersionLabel: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        return "v\(version)"
     }
 
     private var latestFetchDate: Date? {
