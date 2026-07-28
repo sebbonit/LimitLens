@@ -27,6 +27,8 @@ struct OverviewSectionView: View {
             pulseOverview
         case .harbor:
             harborOverview
+        case .constellation:
+            constellationOverview
         }
     }
 
@@ -462,6 +464,265 @@ struct OverviewSectionView: View {
             .shadow(color: appearance.harborShadowColor(for: colorScheme), radius: 5, y: 2)
         }
         .buttonStyle(.plain)
+    }
+
+    private var constellationOverview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 18) {
+                constellationCore
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("SIGNAL CONSTELLATION")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(1.8)
+                        .foregroundStyle(appearance.accentColor)
+                    Text(overviewDetail == "All clear" ? "Every orbit is holding." : overviewDetail)
+                        .font(.system(size: 21, weight: .light, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("\(summaries.count) provider nodes · \(billingSummaryDetail.lowercased())")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.white.opacity(0.44))
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("FIELD LOAD")
+                        .font(.system(size: 8, weight: .bold, design: .rounded))
+                        .tracking(1.2)
+                        .foregroundStyle(Color.white.opacity(0.32))
+                    Text(percentText(constellationAverageUsage))
+                        .font(.system(size: 28, weight: .ultraLight, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                }
+            }
+            .padding(.horizontal, 4)
+
+            if summaries.isEmpty {
+                SectionBlock {
+                    StatusLine(icon: "slider.horizontal.3", color: .secondary, text: "No providers enabled.")
+                }
+            } else {
+                VStack(spacing: 7) {
+                    ForEach(Array(summaries.enumerated()), id: \.element.id) { index, summary in
+                        constellationProviderRow(summary, index: index)
+                            .padding(.leading, index.isMultiple(of: 2) ? 0 : 24)
+                            .padding(.trailing, index.isMultiple(of: 2) ? 24 : 0)
+                    }
+                }
+            }
+
+            HStack(alignment: .top, spacing: 9) {
+                constellationRenewalPanel
+                constellationHistoryPanel
+            }
+        }
+    }
+
+    private var constellationCore: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .frame(width: 86, height: 86)
+
+            Circle()
+                .trim(from: 0.05, to: 0.58)
+                .stroke(
+                    AngularGradient(
+                        colors: [appearance.accentColor, .cyan, appearance.accentColor],
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-35))
+                .frame(width: 73, height: 73)
+                .shadow(color: appearance.accentColor.opacity(0.55), radius: 8)
+
+            Circle()
+                .stroke(appearance.accentColor.opacity(0.20), style: StrokeStyle(lineWidth: 1, dash: [2, 5]))
+                .frame(width: 55, height: 55)
+                .rotationEffect(.degrees(20))
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [appearance.accentColor.opacity(0.42), appearance.accentColor.opacity(0.04)],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 22
+                    )
+                )
+                .frame(width: 42, height: 42)
+
+            Image(systemName: "sparkles")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Circle()
+                .fill(Color.cyan)
+                .frame(width: 6, height: 6)
+                .shadow(color: .cyan, radius: 5)
+                .offset(x: 37, y: -15)
+
+            Circle()
+                .fill(appearance.accentColor)
+                .frame(width: 5, height: 5)
+                .shadow(color: appearance.accentColor, radius: 5)
+                .offset(x: -29, y: 30)
+        }
+        .frame(width: 92, height: 92)
+    }
+
+    private func constellationProviderRow(_ summary: ProviderUsageSummary, index: Int) -> some View {
+        let tint = severityColor(summary.severity)
+        let percent = min(max(summary.percentUsed ?? 0, 0), 100)
+        return Button {
+            onSelectTab(summary.tab)
+        } label: {
+            HStack(spacing: 11) {
+                ZStack {
+                    Circle()
+                        .fill(tint.opacity(0.14))
+                        .frame(width: 34, height: 34)
+                    Circle()
+                        .trim(from: 0, to: max(0.04, percent / 100))
+                        .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 31, height: 31)
+                    Image(systemName: providerIcon(summary.tab.systemImage, hidesProviderNames: hidesProviderNames))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(String(format: "%02d", index + 1))
+                            .font(.system(size: 7, weight: .bold, design: .monospaced))
+                            .foregroundStyle(appearance.accentColor)
+                        Text(providerName(summary.tab.displayName, privateName: summary.tab.privateName, hidesProviderNames: hidesProviderNames).uppercased())
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .tracking(0.8)
+                            .foregroundStyle(Color.white.opacity(0.82))
+                    }
+                    Text(overviewSupportText(for: summary))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(overviewSupportColor(for: summary))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(0..<12, id: \.self) { segment in
+                        Capsule()
+                            .fill(Double(segment) < percent / (100.0 / 12.0) ? tint : Color.white.opacity(0.07))
+                            .frame(width: 3, height: segment.isMultiple(of: 3) ? 14 : 8)
+                    }
+                }
+                .frame(height: 14, alignment: .bottom)
+
+                Text(providerSafeMessage(summary.detail, hidesProviderNames: hidesProviderNames))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(summary.severity == .unavailable ? Color.white.opacity(0.42) : .white)
+                    .frame(minWidth: 92, alignment: .trailing)
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 10)
+            .background(
+                LinearGradient(
+                    colors: [tint.opacity(0.10), Color.white.opacity(0.022)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: ConstellationPanelShape(cornerRadius: 16, cut: 14)
+            )
+            .overlay(
+                ConstellationPanelShape(cornerRadius: 16, cut: 14)
+                    .stroke(tint.opacity(0.22), lineWidth: 1)
+            )
+            .overlay(alignment: index.isMultiple(of: 2) ? .leading : .trailing) {
+                Circle()
+                    .fill(tint)
+                    .frame(width: 5, height: 5)
+                    .shadow(color: tint, radius: 5)
+                    .offset(x: index.isMultiple(of: 2) ? -2 : 2)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var constellationRenewalPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            constellationPanelTitle("INCOMING WINDOWS", icon: "calendar")
+            if billingExpiries.isEmpty {
+                Text("No enabled providers")
+                    .font(.caption2)
+                    .foregroundStyle(Color.white.opacity(0.38))
+            } else {
+                ForEach(billingExpiries.prefix(4)) { entry in
+                    billingExpiryCell(entry)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(
+            Color.white.opacity(0.028),
+            in: ConstellationPanelShape(cornerRadius: 16, cut: 13)
+        )
+        .overlay(
+            ConstellationPanelShape(cornerRadius: 16, cut: 13)
+                .stroke(appearance.accentColor.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private var constellationHistoryPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            constellationPanelTitle("ORBIT MEMORY", icon: "clock.arrow.circlepath")
+            if exhaustionSummaries.isEmpty {
+                Text("No exhausted cycles yet")
+                    .font(.caption2)
+                    .foregroundStyle(Color.white.opacity(0.38))
+            } else {
+                ForEach(exhaustionSummaries.prefix(3)) { entry in
+                    exhaustionSpeedRow(entry)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(
+            Color.white.opacity(0.028),
+            in: ConstellationPanelShape(cornerRadius: 16, cut: 13)
+        )
+        .overlay(
+            ConstellationPanelShape(cornerRadius: 16, cut: 13)
+                .stroke(Color.cyan.opacity(0.13), lineWidth: 1)
+        )
+    }
+
+    private func constellationPanelTitle(_ title: String, icon: String) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(appearance.accentColor)
+            Text(title)
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .tracking(1)
+                .foregroundStyle(Color.white.opacity(0.48))
+            Spacer()
+            Circle()
+                .fill(Color.cyan.opacity(0.7))
+                .frame(width: 3, height: 3)
+        }
+    }
+
+    private var constellationAverageUsage: Double? {
+        let values = summaries.compactMap(\.percentUsed)
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
     }
 
     private var terminalOverviewHeader: some View {

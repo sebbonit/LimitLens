@@ -21,6 +21,7 @@ extension AppAppearance {
         case .terminal: return 620
         case .pulse: return 500
         case .harbor: return 540
+        case .constellation: return 720
         }
     }
 
@@ -31,6 +32,7 @@ extension AppAppearance {
         case .terminal: return 8
         case .pulse: return 14
         case .harbor: return 13
+        case .constellation: return 14
         }
     }
 
@@ -41,6 +43,7 @@ extension AppAppearance {
         case .terminal: return 2
         case .pulse: return 20
         case .harbor: return 10
+        case .constellation: return 22
         }
     }
 
@@ -51,6 +54,7 @@ extension AppAppearance {
         case .terminal: return 1
         case .pulse: return 16
         case .harbor: return 10
+        case .constellation: return 18
         }
     }
 
@@ -61,11 +65,12 @@ extension AppAppearance {
         case .terminal: return .green
         case .pulse: return Color(red: 0.96, green: 0.42, blue: 0.18)
         case .harbor: return Color(red: 0.08, green: 0.58, blue: 0.62)
+        case .constellation: return Color(red: 0.69, green: 0.52, blue: 1)
         }
     }
 
     var preferredColorScheme: ColorScheme? {
-        self == .terminal ? .dark : nil
+        self == .terminal || self == .constellation ? .dark : nil
     }
 
     func windowBackground(for colorScheme: ColorScheme) -> Color {
@@ -95,6 +100,8 @@ extension AppAppearance {
             default:
                 return Color(red: 0.93, green: 0.96, blue: 0.965)
             }
+        case .constellation:
+            return Color(red: 0.025, green: 0.022, blue: 0.060)
         }
     }
 
@@ -125,6 +132,8 @@ extension AppAppearance {
             default:
                 return Color(red: 0.975, green: 0.99, blue: 0.992)
             }
+        case .constellation:
+            return Color(red: 0.055, green: 0.047, blue: 0.115)
         }
     }
 
@@ -151,6 +160,8 @@ extension AppAppearance {
             default:
                 return .white
             }
+        case .constellation:
+            return Color(red: 0.075, green: 0.063, blue: 0.145)
         default:
             return panelBackground(for: colorScheme)
         }
@@ -182,6 +193,39 @@ extension AppAppearance {
             return accentColor.opacity(0.10)
         }
     }
+
+    func constellationShadowColor(for colorScheme: ColorScheme) -> Color {
+        Color(red: 0.36, green: 0.18, blue: 0.82).opacity(0.30)
+    }
+}
+
+struct ConstellationPanelShape: Shape {
+    var cornerRadius: CGFloat = 18
+    var cut: CGFloat = 18
+
+    func path(in rect: CGRect) -> Path {
+        let radius = min(cornerRadius, min(rect.width, rect.height) / 2)
+        let chamfer = min(cut, min(rect.width, rect.height) / 3)
+        var path = Path()
+
+        path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - chamfer, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + chamfer))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - radius, y: rect.maxY),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX + chamfer, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - chamfer))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + radius, y: rect.minY),
+            control: CGPoint(x: rect.minX, y: rect.minY)
+        )
+        path.closeSubpath()
+        return path
+    }
 }
 
 struct SectionBlock<Content: View>: View {
@@ -191,21 +235,65 @@ struct SectionBlock<Content: View>: View {
 
     var body: some View {
         content
-            .padding(appearance == .terminal ? 8 : (appearance == .pulse || appearance == .harbor ? 12 : 10))
+            .padding(appearance == .terminal ? 8 : (appearance == .pulse || appearance == .harbor || appearance == .constellation ? 12 : 10))
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
-                    .fill(appearance.panelBackground(for: colorScheme))
+                Group {
+                    if appearance == .constellation {
+                        ConstellationPanelShape(cornerRadius: appearance.panelCornerRadius, cut: 18)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        appearance.panelBackground(for: colorScheme),
+                                        appearance.cardBackground(for: colorScheme).opacity(0.72)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
+                            .fill(appearance.panelBackground(for: colorScheme))
+                    }
+                }
             )
             .overlay(
-                RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
-                    .stroke(
-                        appearance == .terminal
-                            ? Color.green.opacity(0.26)
-                            : appearance.accentColor.opacity(appearance == .pulse || appearance == .harbor ? 0.14 : 0.10),
-                        lineWidth: appearance == .terminal || appearance == .pulse || appearance == .harbor ? 1 : 0.5
-                    )
+                Group {
+                    if appearance == .constellation {
+                        ConstellationPanelShape(cornerRadius: appearance.panelCornerRadius, cut: 18)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        appearance.accentColor.opacity(0.50),
+                                        Color.cyan.opacity(0.12),
+                                        appearance.accentColor.opacity(0.04)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: appearance.panelCornerRadius, style: .continuous)
+                            .stroke(
+                                appearance == .terminal
+                                    ? Color.green.opacity(0.26)
+                                    : appearance.accentColor.opacity(appearance == .pulse || appearance == .harbor ? 0.14 : 0.10),
+                                lineWidth: appearance == .terminal || appearance == .pulse || appearance == .harbor ? 1 : 0.5
+                            )
+                    }
+                }
             )
+            .overlay(alignment: .topTrailing) {
+                if appearance == .constellation {
+                    Circle()
+                        .fill(Color.cyan.opacity(0.85))
+                        .frame(width: 4, height: 4)
+                        .shadow(color: .cyan.opacity(0.8), radius: 5)
+                        .padding(.top, 9)
+                        .padding(.trailing, 12)
+                }
+            }
             .shadow(
                 color: sectionShadowColor,
                 radius: sectionShadowRadius,
@@ -218,6 +306,7 @@ struct SectionBlock<Content: View>: View {
         case .studio: return appearance.studioShadowColor(for: colorScheme)
         case .pulse: return appearance.pulseShadowColor(for: colorScheme)
         case .harbor: return appearance.harborShadowColor(for: colorScheme)
+        case .constellation: return appearance.constellationShadowColor(for: colorScheme)
         default: return .clear
         }
     }
@@ -227,6 +316,7 @@ struct SectionBlock<Content: View>: View {
         case .studio: return 8
         case .pulse: return 10
         case .harbor: return 6
+        case .constellation: return 14
         default: return 0
         }
     }
@@ -236,6 +326,7 @@ struct SectionBlock<Content: View>: View {
         case .studio: return 3
         case .pulse: return 4
         case .harbor: return 2
+        case .constellation: return 5
         default: return 0
         }
     }
@@ -452,6 +543,8 @@ struct UsageCard: View {
             pulseCard
         case .harbor:
             harborCard
+        case .constellation:
+            constellationCard
         }
     }
 
@@ -713,6 +806,83 @@ struct UsageCard: View {
                 .stroke(tint.opacity(0.16), lineWidth: 1)
         )
     }
+
+    private var constellationCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(spacing: 6) {
+                    Diamond()
+                        .fill(tint)
+                        .frame(width: 8, height: 8)
+                        .shadow(color: tint.opacity(0.7), radius: 5)
+                    Text(label.uppercased())
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .tracking(1.2)
+                        .foregroundStyle(tint.opacity(0.92))
+                }
+                Spacer(minLength: 6)
+                Text(percentText(percentUsed))
+                    .font(.system(size: 21, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(percentUsed == nil ? Color.secondary : Color.white)
+            }
+
+            HStack(alignment: .bottom, spacing: 3) {
+                ForEach(0..<18, id: \.self) { index in
+                    let isFilled = Double(index) < clampedPercent / (100.0 / 18.0)
+                    Capsule()
+                        .fill(isFilled ? tint : Color.white.opacity(0.08))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: index.isMultiple(of: 3) ? 11 : 6)
+                        .shadow(color: isFilled ? tint.opacity(0.35) : .clear, radius: 3)
+                }
+            }
+            .frame(height: 11, alignment: .bottom)
+
+            if leadingDetail != nil || trailingDetail != nil {
+                HStack(alignment: .top, spacing: 8) {
+                    if let leadingDetail {
+                        Text(leadingDetail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if let trailingDetail {
+                        Text(trailingDetail)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(Color.white.opacity(0.52))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, minHeight: 90, alignment: .topLeading)
+        .background(
+            LinearGradient(
+                colors: [tint.opacity(0.12), Color.white.opacity(0.025)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: ConstellationPanelShape(cornerRadius: 16, cut: 14)
+        )
+        .overlay(
+            ConstellationPanelShape(cornerRadius: 16, cut: 14)
+                .stroke(tint.opacity(0.24), lineWidth: 1)
+        )
+    }
+}
+
+private struct Diamond: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.closeSubpath()
+        return path
+    }
 }
 
 struct MetricTile: View {
@@ -769,16 +939,42 @@ struct MetricTile: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(appearance.accentColor.opacity(0.12), lineWidth: 1)
                 )
+        case .constellation:
+            metricContent
+                .padding(12)
+                .frame(maxWidth: .infinity, minHeight: 68, alignment: .topLeading)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            appearance.accentColor.opacity(0.11),
+                            Color.cyan.opacity(0.025)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: ConstellationPanelShape(cornerRadius: 14, cut: 12)
+                )
+                .overlay(
+                    ConstellationPanelShape(cornerRadius: 14, cut: 12)
+                        .stroke(appearance.accentColor.opacity(0.22), lineWidth: 1)
+                )
         }
     }
 
     private var metricContent: some View {
-        VStack(alignment: .leading, spacing: appearance == .studio || appearance == .pulse || appearance == .harbor ? 5 : 3) {
+        VStack(alignment: .leading, spacing: appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? 5 : 3) {
             Text(title)
-                .font(appearance == .terminal ? .system(size: 9, weight: .bold, design: .monospaced) : .caption2.weight(.medium))
+                .font(
+                    appearance == .terminal
+                        ? .system(size: 9, weight: .bold, design: .monospaced)
+                        : appearance == .constellation
+                            ? .system(size: 9, weight: .bold, design: .rounded)
+                            : .caption2.weight(.medium)
+                )
+                .tracking(appearance == .constellation ? 0.9 : 0)
                 .foregroundStyle(appearance == .terminal ? Color.green.opacity(0.62) : Color.secondary)
             Text(value)
-                .font(appearance == .studio || appearance == .pulse || appearance == .harbor ? .title3.weight(.bold) : .body.weight(.semibold))
+                .font(appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? .title3.weight(.bold) : .body.weight(.semibold))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -1404,6 +1600,8 @@ struct SectionHeader: View {
             pulseHeader
         case .harbor:
             harborHeader
+        case .constellation:
+            constellationHeader
         }
     }
 
@@ -1539,6 +1737,65 @@ struct SectionHeader: View {
                 endPoint: .trailing
             )
             .frame(height: 1.5)
+        }
+    }
+
+    private var constellationHeader: some View {
+        HStack(spacing: 11) {
+            ZStack {
+                Circle()
+                    .stroke(appearance.accentColor.opacity(0.18), lineWidth: 1)
+                    .frame(width: 35, height: 35)
+                Circle()
+                    .trim(from: 0.08, to: 0.70)
+                    .stroke(
+                        AngularGradient(
+                            colors: [appearance.accentColor, .cyan, appearance.accentColor],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-38))
+                    .frame(width: 29, height: 29)
+                Image(systemName: providerIcon(systemImage, hidesProviderNames: hidesProviderNames))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("NODE / \(title.uppercased())")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .tracking(1.2)
+                    .foregroundStyle(appearance.accentColor)
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.white.opacity(0.56))
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            headerControls
+        }
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(appearance.accentColor)
+                    .frame(width: 4, height: 4)
+                    .shadow(color: appearance.accentColor, radius: 4)
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [appearance.accentColor.opacity(0.55), Color.cyan.opacity(0.12), .clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(height: 1)
+            }
         }
     }
 

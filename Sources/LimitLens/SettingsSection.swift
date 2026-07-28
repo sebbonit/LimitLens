@@ -156,6 +156,42 @@ struct SettingsSectionView: View {
                     .stroke(appearance.accentColor.opacity(0.14), lineWidth: 1)
             )
             .shadow(color: appearance.harborShadowColor(for: colorScheme), radius: 6, y: 2)
+        case .constellation:
+            VStack(alignment: .leading, spacing: isCollapsed ? 0 : 10) {
+                settingsSectionButton(id, title: title, systemImage: systemImage, detail: detail, isCollapsed: isCollapsed)
+                if !isCollapsed { content() }
+            }
+            .padding(13)
+            .background(
+                LinearGradient(
+                    colors: [
+                        appearance.cardBackground(for: colorScheme),
+                        appearance.panelBackground(for: colorScheme).opacity(0.76)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: ConstellationPanelShape(cornerRadius: 17, cut: 14)
+            )
+            .overlay(
+                ConstellationPanelShape(cornerRadius: 17, cut: 14)
+                    .stroke(
+                        LinearGradient(
+                            colors: [appearance.accentColor.opacity(0.38), Color.cyan.opacity(0.10)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .overlay(alignment: .topTrailing) {
+                Circle()
+                    .fill(Color.cyan.opacity(0.8))
+                    .frame(width: 4, height: 4)
+                    .shadow(color: .cyan, radius: 5)
+                    .padding(9)
+            }
+            .shadow(color: appearance.constellationShadowColor(for: colorScheme), radius: 12, y: 4)
         }
     }
 
@@ -173,15 +209,15 @@ struct SettingsSectionView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
-                    .font(.system(size: appearance == .studio || appearance == .pulse || appearance == .harbor ? 13 : 11, weight: .semibold))
-                    .foregroundStyle(appearance == .studio || appearance == .pulse || appearance == .harbor ? appearance.accentColor : Color.secondary)
-                    .frame(width: appearance == .studio || appearance == .pulse || appearance == .harbor ? 30 : 20, height: appearance == .studio || appearance == .pulse || appearance == .harbor ? 30 : 20)
+                    .font(.system(size: appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? 13 : 11, weight: .semibold))
+                    .foregroundStyle(appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? appearance.accentColor : Color.secondary)
+                    .frame(width: appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? 30 : 20, height: appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? 30 : 20)
                     .background(
-                        RoundedRectangle(cornerRadius: appearance == .studio || appearance == .pulse || appearance == .harbor ? 9 : 10)
-                            .fill((appearance == .studio || appearance == .pulse || appearance == .harbor ? appearance.accentColor : Color.secondary).opacity(0.10))
+                        RoundedRectangle(cornerRadius: appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? 9 : 10)
+                            .fill((appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? appearance.accentColor : Color.secondary).opacity(0.10))
                     )
                 Text(title)
-                    .font(appearance == .studio || appearance == .pulse || appearance == .harbor ? .headline : .subheadline.weight(.semibold))
+                    .font(appearance == .studio || appearance == .pulse || appearance == .harbor || appearance == .constellation ? .headline : .subheadline.weight(.semibold))
                 Spacer()
                 if let detail {
                     Text(detail)
@@ -337,6 +373,31 @@ struct SettingsSectionView: View {
                             .fill(appearance.accentColor.opacity(0.16))
                     }
                     .frame(height: 18)
+                }
+                .padding(7)
+            case .constellation:
+                HStack(spacing: 6) {
+                    VStack(spacing: 3) {
+                        ForEach(0..<5, id: \.self) { index in
+                            Circle()
+                                .fill(index == 2 ? appearance.accentColor : appearance.accentColor.opacity(0.24))
+                                .frame(width: index == 2 ? 7 : 4, height: index == 2 ? 7 : 4)
+                        }
+                    }
+                    .overlay {
+                        Capsule()
+                            .fill(appearance.accentColor.opacity(0.20))
+                            .frame(width: 1)
+                    }
+                    VStack(spacing: 4) {
+                        HStack {
+                            Capsule().fill(appearance.accentColor.opacity(0.55)).frame(width: 28, height: 4)
+                            Spacer()
+                            Circle().fill(Color.cyan.opacity(0.7)).frame(width: 4, height: 4)
+                        }
+                        ConstellationPanelShape(cornerRadius: 5, cut: 6)
+                            .fill(appearance.accentColor.opacity(0.14))
+                    }
                 }
                 .padding(7)
             }
