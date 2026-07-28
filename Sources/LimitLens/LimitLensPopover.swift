@@ -26,6 +26,9 @@ struct LimitLensPopover: View {
                 pulseLayout
             case .harbor:
                 harborLayout
+            case .constellation:
+                constellationLayout
+                    .environment(\.colorScheme, .dark)
             }
         }
         .environment(\.appAppearance, appearance)
@@ -65,6 +68,336 @@ struct LimitLensPopover: View {
             footer
         }
         .padding(appearance.outerPadding)
+    }
+
+    private var constellationLayout: some View {
+        HStack(alignment: .top, spacing: 0) {
+            constellationRail
+
+            VStack(alignment: .leading, spacing: 12) {
+                constellationHeader
+                contentView
+                constellationFooter
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.075, green: 0.062, blue: 0.145).opacity(0.96),
+                        Color(red: 0.035, green: 0.032, blue: 0.080).opacity(0.98)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: ConstellationPanelShape(cornerRadius: 24, cut: 28)
+            )
+            .overlay(
+                ConstellationPanelShape(cornerRadius: 24, cut: 28)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                appearance.accentColor.opacity(0.42),
+                                Color.cyan.opacity(0.13),
+                                appearance.accentColor.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: appearance.constellationShadowColor(for: colorScheme), radius: 22, x: -4, y: 8)
+        }
+        .padding(appearance.outerPadding)
+        .background(constellationField)
+    }
+
+    private var constellationField: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.020, green: 0.018, blue: 0.050),
+                    Color(red: 0.048, green: 0.028, blue: 0.095),
+                    Color(red: 0.018, green: 0.035, blue: 0.070)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Ellipse()
+                .stroke(appearance.accentColor.opacity(0.12), lineWidth: 1)
+                .frame(width: 410, height: 170)
+                .rotationEffect(.degrees(-24))
+                .offset(x: 210, y: -150)
+
+            Ellipse()
+                .stroke(Color.cyan.opacity(0.08), lineWidth: 1)
+                .frame(width: 330, height: 115)
+                .rotationEffect(.degrees(18))
+                .offset(x: -230, y: 230)
+
+            VStack {
+                HStack {
+                    Circle()
+                        .fill(appearance.accentColor.opacity(0.70))
+                        .frame(width: 3, height: 3)
+                        .shadow(color: appearance.accentColor, radius: 5)
+                    Spacer()
+                    Circle()
+                        .fill(Color.cyan.opacity(0.6))
+                        .frame(width: 2, height: 2)
+                }
+                Spacer()
+                HStack {
+                    Spacer()
+                    Circle()
+                        .fill(Color.white.opacity(0.5))
+                        .frame(width: 2, height: 2)
+                }
+            }
+            .padding(30)
+        }
+    }
+
+    private var constellationRail: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .stroke(appearance.accentColor.opacity(0.28), lineWidth: 1)
+                    Circle()
+                        .trim(from: 0.12, to: 0.82)
+                        .stroke(appearance.accentColor, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .rotationEffect(.degrees(-62))
+                    LimitLensMark()
+                        .padding(6)
+                }
+                .frame(width: 35, height: 35)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("LIMIT")
+                    Text("LENS")
+                        .foregroundStyle(appearance.accentColor)
+                }
+                .font(.system(size: 9, weight: .black, design: .rounded))
+                .tracking(1.3)
+            }
+
+            ZStack(alignment: .topLeading) {
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                appearance.accentColor.opacity(0.50),
+                                Color.cyan.opacity(0.24),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 1)
+                    .padding(.leading, 17)
+                    .padding(.vertical, 18)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array((viewModel.visibleTabs + [.settings]).enumerated()), id: \.element.id) { index, tab in
+                        constellationRailButton(tab, index: index)
+                    }
+                }
+            }
+
+            Spacer(minLength: 4)
+        }
+        .padding(.vertical, 10)
+        .frame(width: 112, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func constellationRailButton(_ tab: ProviderTab, index: Int) -> some View {
+        let isSelected = selectedTab == tab
+        let label = providerName(
+            tab.displayName,
+            privateName: tab.privateName,
+            hidesProviderNames: viewModel.hidesProviderNames
+        )
+        return Button {
+            selectedTab = tab
+        } label: {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? appearance.accentColor : Color(red: 0.045, green: 0.038, blue: 0.09))
+                        .frame(width: isSelected ? 34 : 30, height: isSelected ? 34 : 30)
+                        .overlay(
+                            Circle()
+                                .stroke(isSelected ? appearance.accentColor.opacity(0.65) : Color.white.opacity(0.10), lineWidth: 1)
+                        )
+                        .shadow(color: isSelected ? appearance.accentColor.opacity(0.60) : .clear, radius: 8)
+                    Image(systemName: providerIcon(tab.systemImage, hidesProviderNames: viewModel.hidesProviderNames))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.48))
+                }
+                .frame(width: 35, height: 35)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(String(format: "%02d", index))
+                        .font(.system(size: 7, weight: .bold, design: .monospaced))
+                        .foregroundStyle(isSelected ? appearance.accentColor : Color.white.opacity(0.24))
+                    Text(label)
+                        .font(.system(size: 9, weight: isSelected ? .bold : .medium, design: .rounded))
+                        .foregroundStyle(isSelected ? Color.white : Color.white.opacity(0.44))
+                        .lineLimit(1)
+                }
+            }
+            .padding(.vertical, 2)
+            .padding(.leading, 0)
+            .padding(.trailing, 5)
+            .frame(width: 108, alignment: .leading)
+            .background(
+                Group {
+                    if isSelected {
+                        ConstellationPanelShape(cornerRadius: 12, cut: 9)
+                            .fill(appearance.accentColor.opacity(0.10))
+                    }
+                }
+            )
+            .overlay(alignment: .trailing) {
+                if isSelected {
+                    Capsule()
+                        .fill(Color.cyan.opacity(0.75))
+                        .frame(width: 2, height: 14)
+                        .shadow(color: .cyan, radius: 4)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help(label)
+    }
+
+    private var constellationHeader: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("FIELD")
+                    Circle()
+                        .fill(appearance.accentColor)
+                        .frame(width: 4, height: 4)
+                    Text(String(format: "%02d", constellationTabIndex))
+                }
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(1.4)
+                .foregroundStyle(appearance.accentColor)
+
+                Text(
+                    providerName(
+                        selectedTab.displayName,
+                        privateName: selectedTab.privateName,
+                        hidesProviderNames: viewModel.hidesProviderNames
+                    )
+                )
+                .font(.system(size: 25, weight: .light, design: .rounded))
+                .foregroundStyle(.white)
+            }
+
+            Spacer()
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.cyan)
+                    .frame(width: 5, height: 5)
+                    .shadow(color: .cyan, radius: 5)
+                Text("\(viewModel.providerSummaries.count) NODES LIVE")
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .tracking(0.8)
+                    .foregroundStyle(Color.white.opacity(0.52))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.035), in: Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
+
+            Button {
+                Task { await viewModel.refresh() }
+            } label: {
+                ZStack {
+                    Circle()
+                        .stroke(appearance.accentColor.opacity(0.18), lineWidth: 1)
+                    Circle()
+                        .trim(from: 0.05, to: 0.68)
+                        .stroke(
+                            AngularGradient(colors: [appearance.accentColor, .cyan], center: .center),
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(35))
+                        .padding(4)
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.plain)
+            .help("Refresh all providers")
+        }
+    }
+
+    private var constellationFooter: some View {
+        HStack(spacing: 8) {
+            if let fetchedAt = latestFetchDate {
+                Circle()
+                    .fill(Color.cyan.opacity(0.8))
+                    .frame(width: 4, height: 4)
+                Text("SYNC \(fetchedAt.formatted(date: .omitted, time: .shortened))")
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .tracking(0.8)
+                    .foregroundStyle(Color.white.opacity(0.38))
+                    .monospacedDigit()
+            }
+
+            Spacer()
+
+            Button {
+                selectedTab = .settings
+            } label: {
+                Image(systemName: "gearshape")
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(selectedTab == .settings ? appearance.accentColor : Color.white.opacity(0.46))
+            .help("Settings")
+
+            Button {
+                viewModel.updateConfiguration { configuration in
+                    let modes: [MenuBarDisplay] = [.logos, .countdowns, .hidden]
+                    let current = configuration.privacy.menuBarDisplay
+                    let index = modes.firstIndex(of: current).map { ($0 + 1) % modes.count } ?? 0
+                    configuration.privacy.menuBarDisplay = modes[index]
+                }
+            } label: {
+                Image(systemName: menuBarDisplayIcon)
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(menuBarDisplay == .logos ? Color.white.opacity(0.46) : appearance.accentColor)
+            .help(menuBarDisplayHelp)
+
+            Button {
+                NSApp.terminate(nil)
+            } label: {
+                Image(systemName: "power")
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.white.opacity(0.46))
+            .help("Quit")
+        }
+    }
+
+    private var constellationTabIndex: Int {
+        (viewModel.visibleTabs + [.settings]).firstIndex(of: selectedTab) ?? 0
     }
 
     private var harborHeader: some View {

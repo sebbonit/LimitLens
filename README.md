@@ -13,7 +13,7 @@
   <a href="https://swift.org"><img src="https://img.shields.io/badge/swift-6.0-orange.svg" alt="Swift 6.0"></a>
   <a href="https://apple.com/macos"><img src="https://img.shields.io/badge/macOS-13%2B-blue.svg" alt="macOS 13+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
-  <a href="#testing"><img src="https://img.shields.io/badge/tests-195-brightgreen.svg" alt="Tests: 195"></a>
+  <a href="#testing"><img src="https://img.shields.io/badge/tests-203-brightgreen.svg" alt="Tests: 203"></a>
 </p>
 
 ![LimitLens Classic, Studio, Terminal, Pulse, and Harbor interfaces](docs/screenshots/limitlens-themes.png)
@@ -58,7 +58,7 @@ Each provider can be enabled or disabled independently. Disabled providers are n
 - Per-provider detail tabs, diagnostics, and on-demand refresh
 
 ### Appearance themes
-Five popover layouts, switchable in **Settings → Appearance**:
+Six popover layouts, switchable in **Settings → Appearance**:
 
 | Theme | Layout |
 |-------|--------|
@@ -67,6 +67,7 @@ Five popover layouts, switchable in **Settings → Appearance**:
 | **Terminal** | Compact dark console look with monospaced UI |
 | **Pulse** | Meter-first cards with bottom navigation |
 | **Harbor** | Teal instrument panel with segmented navigation |
+| **Constellation** | Orbital signal map with a connected node spine |
 
 ### Menu bar display
 Configurable from Settings (or the footer toggle):
@@ -214,7 +215,7 @@ Coding guidelines for contributors and agents live in [AGENTS.md](AGENTS.md).
 swift test
 ```
 
-195 tests across core parsing, pace projection, quota history, menu bar status, notifications, configuration, refresh, exhaustion history, diagnostics, and dashboard links.
+203 tests across core parsing, pace projection, quota history, menu bar status, notifications, configuration, refresh, exhaustion history, diagnostics, and dashboard links.
 
 When changing JSON/HTML parsing, add fixtures under `Tests/LimitLensCoreTests/Fixtures/`.
 
