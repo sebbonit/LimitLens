@@ -13,6 +13,7 @@ struct CodexSectionView: View {
     var isCollectingPaceData: Bool = false
     var paceChart: QuotaPaceChartData? = nil
     @State private var showsResetCreditDetails = false
+    @State private var showsLocalUsageInfo = false
 
     var body: some View {
         SectionBlock {
@@ -49,6 +50,11 @@ struct CodexSectionView: View {
                 Divider()
 
                 resetCreditsView(snapshot.resetCredits)
+
+                if let localUsage = snapshot.localUsage {
+                    localUsageView(localUsage)
+                    Divider()
+                }
 
                 LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 8) {
                     MetricTile(
@@ -87,6 +93,65 @@ struct CodexSectionView: View {
             GridItem(.flexible(), spacing: 10),
             GridItem(.flexible(), spacing: 10)
         ]
+    }
+
+    private func localUsageView(_ usage: CodexLocalUsageSummary) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 5) {
+                Text("Local token usage & API equivalent")
+                    .font(.caption2.weight(.semibold))
+                Button {
+                    showsLocalUsageInfo.toggle()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("About local usage and API-equivalent cost")
+                .popover(isPresented: $showsLocalUsageInfo, arrowEdge: .top) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("About this estimate")
+                            .font(.caption.weight(.semibold))
+                        Text(
+                            "Calculated from local Codex session logs using each model's public API token prices. "
+                                + "It is an API-equivalent value, not an additional subscription charge."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(12)
+                    .frame(width: 280, alignment: .leading)
+                }
+                Spacer()
+            }
+
+            LazyVGrid(columns: metricColumns, alignment: .leading, spacing: 8) {
+                localUsageTile(title: "Last 24 hours", period: usage.last24Hours)
+                localUsageTile(title: "Last 7 days", period: usage.last7Days)
+                localUsageTile(title: "Last 30 days", period: usage.last30Days)
+            }
+        }
+    }
+
+    private func localUsageTile(title: String, period: CodexLocalUsagePeriod) -> some View {
+        MetricTile(
+            title: title,
+            value: UsageFormatting.abbreviatedNumber(period.totalTokens),
+            caption: localCostCaption(period),
+            captionColor: period.hasCompleteCostEstimate ? .secondary : .orange
+        )
+    }
+
+    private func localCostCaption(_ period: CodexLocalUsagePeriod) -> String {
+        guard period.hasAnyCostEstimate else {
+            return "API estimate unavailable"
+        }
+        let prefix = period.hasCompleteCostEstimate ? "≈" : "≥"
+        let suffix = period.hasCompleteCostEstimate ? " API equivalent" : " priced portion"
+        return prefix + UsageFormatting.usd(period.estimatedCostUSD) + suffix
     }
 
     private func resetWindowView(title: String, window: RateLimitWindow?, tint: Color) -> some View {

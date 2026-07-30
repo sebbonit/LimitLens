@@ -59,6 +59,7 @@ final class UsageViewModel: ObservableObject {
     private let cursorService: CursorUsageFetching?
     private let desktopQuotaService: DesktopQuotaFetching?
     private let openCodeGoService: OpenCodeGoUsageFetching?
+    private let codexLocalUsageScanner: CodexLocalUsageScanning
     internal let historyStore: QuotaExhaustionHistoryStoring
     let quotaUsageHistoryStore: QuotaUsageHistoryStoring
     private var didStartLoops = false
@@ -70,6 +71,7 @@ final class UsageViewModel: ObservableObject {
     private var refreshLoopGeneration: UUID?
     private var clockLoopTask: Task<Void, Never>?
     private var autoSwitchLoopTask: Task<Void, Never>?
+    private var codexLocalUsageTask: Task<Void, Never>?
     private var sleepObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
     private var applicationActiveObserver: NSObjectProtocol?
@@ -82,6 +84,7 @@ final class UsageViewModel: ObservableObject {
             cursorService: nil,
             desktopQuotaService: nil,
             openCodeGoService: nil,
+            codexLocalUsageScanner: CodexLocalUsageScanner.shared,
             notificationCoordinator: NotificationCoordinator(),
             historyStore: QuotaExhaustionHistoryStore(),
             quotaUsageHistoryStore: QuotaUsageHistoryStore()
@@ -94,6 +97,7 @@ final class UsageViewModel: ObservableObject {
         cursorService: CursorUsageFetching,
         desktopQuotaService: DesktopQuotaFetching,
         openCodeGoService: OpenCodeGoUsageFetching,
+        codexLocalUsageScanner: CodexLocalUsageScanning = CodexLocalUsageScanner.shared,
         notificationCoordinator: NotificationCoordinator = NotificationCoordinator(),
         historyStore: QuotaExhaustionHistoryStoring = QuotaExhaustionHistoryStore(),
         quotaUsageHistoryStore: QuotaUsageHistoryStoring = QuotaUsageHistoryStore()
@@ -104,6 +108,7 @@ final class UsageViewModel: ObservableObject {
         self.cursorService = cursorService
         self.desktopQuotaService = desktopQuotaService
         self.openCodeGoService = openCodeGoService
+        self.codexLocalUsageScanner = codexLocalUsageScanner
         self.notificationCoordinator = notificationCoordinator
         self.historyStore = historyStore
         self.quotaUsageHistoryStore = quotaUsageHistoryStore
@@ -117,6 +122,7 @@ final class UsageViewModel: ObservableObject {
         cursorService: CursorUsageFetching?,
         desktopQuotaService: DesktopQuotaFetching?,
         openCodeGoService: OpenCodeGoUsageFetching?,
+        codexLocalUsageScanner: CodexLocalUsageScanning,
         notificationCoordinator: NotificationCoordinator,
         historyStore: QuotaExhaustionHistoryStoring,
         quotaUsageHistoryStore: QuotaUsageHistoryStoring
@@ -127,6 +133,7 @@ final class UsageViewModel: ObservableObject {
         self.cursorService = cursorService
         self.desktopQuotaService = desktopQuotaService
         self.openCodeGoService = openCodeGoService
+        self.codexLocalUsageScanner = codexLocalUsageScanner
         self.notificationCoordinator = notificationCoordinator
         self.historyStore = historyStore
         self.quotaUsageHistoryStore = quotaUsageHistoryStore
@@ -182,6 +189,7 @@ final class UsageViewModel: ObservableObject {
 
     private func handleSystemSleep() {
         scheduledRefreshTask?.cancel()
+        codexLocalUsageTask?.cancel()
         refreshingProviders.removeAll()
         refreshStartedAt.removeAll()
         updateIsRefreshing()
@@ -440,9 +448,13 @@ final class UsageViewModel: ObservableObject {
             }
             try Task.checkCancellation()
             guard refreshingProviders[.codex] == refreshID else { return }
-            snapshot = refreshedSnapshot
+            let displayedSnapshot = refreshedSnapshot.replacingLocalUsage(
+                refreshedSnapshot.localUsage ?? snapshot?.localUsage
+            )
+            snapshot = displayedSnapshot
             state = .loaded
             lastFetchAt[.codex] = Date()
+            refreshCodexLocalUsage(for: displayedSnapshot)
             updatePaceProjection(for: .codex)
             recordExhaustionIfNeeded(for: .codex)
             lastErrors[.codex] = nil
@@ -456,6 +468,18 @@ final class UsageViewModel: ObservableObject {
             guard refreshingProviders[.codex] == refreshID else { return }
             state = .failed("Usage data is temporarily unavailable.")
             lastErrors[.codex] = "Usage data is temporarily unavailable."
+        }
+    }
+
+    private func refreshCodexLocalUsage(for refreshedSnapshot: LimitLensSnapshot) {
+        codexLocalUsageTask?.cancel()
+        let scanner = codexLocalUsageScanner
+        let snapshotDate = refreshedSnapshot.fetchedAt
+        codexLocalUsageTask = Task { [weak self] in
+            let usage = await scanner.scan(now: Date())
+            guard !Task.isCancelled, let self, let usage else { return }
+            guard self.snapshot?.fetchedAt == snapshotDate else { return }
+            self.snapshot = refreshedSnapshot.replacingLocalUsage(usage)
         }
     }
 
@@ -630,6 +654,7 @@ final class UsageViewModel: ObservableObject {
 
     private func applyDisabledStates() {
         if !configuration.providers.codex.isEnabled {
+            codexLocalUsageTask?.cancel()
             state = .disabled
             snapshot = nil
             paceEstimates[.codex] = nil

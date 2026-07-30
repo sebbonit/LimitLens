@@ -164,6 +164,7 @@ public struct LimitLensSnapshot: Equatable, Sendable {
     public let planExpiresAt: Date?
     public let tokenUsage: AccountTokenUsageSummary?
     public let dailyUsageBuckets: [AccountTokenUsageDailyBucket]
+    public let localUsage: CodexLocalUsageSummary?
     public let fetchedAt: Date
 
     public init(
@@ -172,6 +173,7 @@ public struct LimitLensSnapshot: Equatable, Sendable {
         planExpiresAt: Date? = nil,
         tokenUsage: AccountTokenUsageSummary?,
         dailyUsageBuckets: [AccountTokenUsageDailyBucket] = [],
+        localUsage: CodexLocalUsageSummary? = nil,
         fetchedAt: Date = Date()
     ) {
         self.rateLimit = rateLimit
@@ -179,7 +181,20 @@ public struct LimitLensSnapshot: Equatable, Sendable {
         self.planExpiresAt = planExpiresAt
         self.tokenUsage = tokenUsage
         self.dailyUsageBuckets = dailyUsageBuckets
+        self.localUsage = localUsage
         self.fetchedAt = fetchedAt
+    }
+
+    public func replacingLocalUsage(_ localUsage: CodexLocalUsageSummary?) -> LimitLensSnapshot {
+        LimitLensSnapshot(
+            rateLimit: rateLimit,
+            resetCredits: resetCredits,
+            planExpiresAt: planExpiresAt,
+            tokenUsage: tokenUsage,
+            dailyUsageBuckets: dailyUsageBuckets,
+            localUsage: localUsage,
+            fetchedAt: fetchedAt
+        )
     }
 }
 

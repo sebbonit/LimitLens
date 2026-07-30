@@ -20,6 +20,28 @@ struct RefreshConfigTests {
         #expect(codex.callCount == 1)
     }
 
+    @Test("Codex quota refresh is not blocked by the local cost scan")
+    func codexRefreshLoadsLocalUsageInBackground() async {
+        let usage = CodexLocalUsageSummary(
+            last24Hours: usagePeriod(tokens: 100, cost: 1),
+            last7Days: usagePeriod(tokens: 700, cost: 7),
+            last30Days: usagePeriod(tokens: 3_000, cost: 30)
+        )
+        let scanner = MockCodexLocalUsageScanner(summary: usage)
+        let viewModel = makeViewModel(
+            codex: MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 42))),
+            localUsageScanner: scanner
+        )
+
+        await viewModel.refreshProvider(.codex)
+        for _ in 0..<50 where viewModel.snapshot?.localUsage == nil {
+            await Task.yield()
+        }
+
+        #expect(viewModel.state == .loaded)
+        #expect(viewModel.snapshot?.localUsage == usage)
+    }
+
     @Test("Full refresh updates lastFetchAt for all enabled providers")
     func fullRefreshUpdatesAllLastFetchAt() async {
         let viewModel = makeViewModel(
@@ -187,15 +209,36 @@ struct RefreshConfigTests {
         codex: CodexUsageFetching = MockCodexUsageClient(result: .failure(TestError.unavailable)),
         cursor: CursorUsageFetching = MockCursorUsageClient(result: .failure(TestError.unavailable)),
         desktopQuota: DesktopQuotaFetching = MockDesktopQuotaClient(result: .failure(TestError.unavailable)),
-        openCodeGo: OpenCodeGoUsageFetching = MockOpenCodeGoUsageClient(result: .failure(TestError.unavailable))
+        openCodeGo: OpenCodeGoUsageFetching = MockOpenCodeGoUsageClient(result: .failure(TestError.unavailable)),
+        localUsageScanner: CodexLocalUsageScanning = MockCodexLocalUsageScanner(summary: nil)
     ) -> UsageViewModel {
         UsageViewModel(
             configuration: configuration,
             service: codex,
             cursorService: cursor,
             desktopQuotaService: desktopQuota,
-            openCodeGoService: openCodeGo
+            openCodeGoService: openCodeGo,
+            codexLocalUsageScanner: localUsageScanner
         )
+    }
+
+    private func usagePeriod(tokens: Int64, cost: Double) -> CodexLocalUsagePeriod {
+        CodexLocalUsagePeriod(
+            inputTokens: tokens,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+            totalTokens: tokens,
+            estimatedCostUSD: cost,
+            unpricedTokens: 0
+        )
+    }
+}
+
+private struct MockCodexLocalUsageScanner: CodexLocalUsageScanning {
+    let summary: CodexLocalUsageSummary?
+
+    func scan(now: Date) async -> CodexLocalUsageSummary? {
+        summary
     }
 }
 
