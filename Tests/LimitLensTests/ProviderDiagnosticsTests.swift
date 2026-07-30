@@ -49,7 +49,7 @@ struct ProviderDiagnosticsTests {
         )
 
         viewModel.testProviderConnection(.codex)
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
 
         let result = viewModel.diagnosticTestResults[.codex]
         #expect(result != nil)
@@ -66,7 +66,7 @@ struct ProviderDiagnosticsTests {
         )
 
         viewModel.testProviderConnection(.codex)
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
 
         let result = viewModel.diagnosticTestResults[.codex]
         #expect(result != nil)
@@ -134,8 +134,15 @@ struct ProviderDiagnosticsTests {
             service: codex,
             cursorService: cursor,
             desktopQuotaService: desktopQuota,
-            openCodeGoService: openCodeGo
+            openCodeGoService: openCodeGo,
+            codexLocalUsageScanner: NoOpCodexLocalUsageScanner()
         )
+    }
+}
+
+private struct NoOpCodexLocalUsageScanner: CodexLocalUsageScanning {
+    func scan(now: Date) async -> CodexLocalUsageSummary? {
+        nil
     }
 }
 
