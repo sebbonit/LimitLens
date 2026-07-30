@@ -86,6 +86,33 @@ public enum UsageFormatting {
         return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 
+    public static func abbreviatedNumber(_ value: Int64) -> String {
+        let absoluteValue = abs(Double(value))
+        let sign = value < 0 ? "-" : ""
+        let units: [(threshold: Double, suffix: String)] = [
+            (1_000_000_000, "B"),
+            (1_000_000, "M"),
+            (1_000, "K")
+        ]
+
+        guard let unit = units.first(where: { absoluteValue >= $0.threshold }) else {
+            return compactNumber(value)
+        }
+        let scaled = absoluteValue / unit.threshold
+        let decimals = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2
+        return sign + String(format: "%.\(decimals)f%@", scaled, unit.suffix)
+    }
+
+    public static func usd(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.minimumFractionDigits = value >= 100 ? 0 : 2
+        formatter.maximumFractionDigits = value >= 100 ? 0 : 2
+        return formatter.string(from: NSNumber(value: value)) ?? String(format: "$%.2f", value)
+    }
+
     public static func usd(cents: Int?) -> String {
         guard let cents else { return "--" }
         let sign = cents < 0 ? "-" : ""

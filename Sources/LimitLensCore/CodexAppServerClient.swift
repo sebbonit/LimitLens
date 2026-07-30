@@ -72,13 +72,15 @@ public final class CodexAppServerClient: CodexUsageFetching, @unchecked Sendable
         try Task.checkCancellation()
         let account = try? await accountFetcher.fetchAccountInfo()
         try Task.checkCancellation()
+        let fetchedAt = Date()
 
         return LimitLensSnapshot(
             rateLimit: rateLimits.preferredRateLimit,
             resetCredits: resetCredits,
             planExpiresAt: account?.planExpiresAt,
             tokenUsage: usage?.summary,
-            dailyUsageBuckets: usage?.dailyUsageBuckets ?? []
+            dailyUsageBuckets: usage?.dailyUsageBuckets ?? [],
+            fetchedAt: fetchedAt
         )
     }
 }

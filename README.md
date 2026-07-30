@@ -37,7 +37,7 @@ LimitLens is a native macOS menu bar app (no Dock icon) that aggregates usage fr
 
 | Provider | What it tracks |
 |----------|----------------|
-| **Codex** (OpenAI) | Primary/secondary rate limits, reset credits, token usage, daily streaks |
+| **Codex** (OpenAI) | Primary/secondary rate limits, reset credits, token usage, API-equivalent cost, daily streaks |
 | **Cursor** | Plan $ usage, Auto/API sub-limits, billing cycle, plan type |
 | **Devin** (Windsurf) | Daily & weekly quotas, overage balance, plan cycle |
 | **OpenCode Go** | Rolling / weekly / monthly windows, billing balance, payment history |
@@ -54,6 +54,7 @@ Each provider can be enabled or disabled independently. Disabled providers are n
 - Billing / renewal tracking with urgency colors
 - Pace projection (“will exhaust before reset” vs spare capacity)
 - Codex and Cursor burn-down charts with target, actual, current, and historical pace
+- Rolling Codex usage and API-equivalent cost for the last 24 hours, 7 days, and 30 days
 - Exhaustion history with average time-to-exhaust
 - Per-provider detail tabs, diagnostics, and on-demand refresh
 
