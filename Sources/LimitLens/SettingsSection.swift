@@ -120,7 +120,7 @@ struct SettingsSectionView: View {
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(CompactHitTargetButtonStyle())
                 if !isCollapsed { content() }
             }
             .padding(11)
@@ -230,7 +230,7 @@ struct SettingsSectionView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     private func toggleSection(_ id: String) {
@@ -299,7 +299,7 @@ struct SettingsSectionView: View {
                     .stroke(isSelected ? appearance.accentColor.opacity(0.75) : Color.primary.opacity(0.08), lineWidth: isSelected ? 1.5 : 0.5)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     @ViewBuilder
@@ -463,7 +463,7 @@ struct SettingsSectionView: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(CompactHitTargetButtonStyle())
                 .disabled(!isEnabled)
             }
             .padding(.vertical, 6)
@@ -481,7 +481,7 @@ struct SettingsSectionView: View {
                             Image(systemName: "folder")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(CompactHitTargetButtonStyle())
                         .help("Choose file")
 
                         Button {
@@ -490,7 +490,7 @@ struct SettingsSectionView: View {
                             Image(systemName: "arrow.counterclockwise")
                                 .font(.system(size: 12, weight: .medium))
                         }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(CompactHitTargetButtonStyle())
                         .help("Reset to default")
                     }
 
@@ -516,7 +516,7 @@ struct SettingsSectionView: View {
                     Image(systemName: "arrow.up.right.square")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(CompactHitTargetButtonStyle())
                 .foregroundStyle(.secondary)
                 .help("Open dashboard")
                 Spacer()
@@ -541,7 +541,7 @@ struct SettingsSectionView: View {
                 } label: {
                     Label("Reload", systemImage: "arrow.counterclockwise")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(CompactHitTargetButtonStyle())
                 .font(.caption)
 
                 Spacer()
@@ -1053,7 +1053,7 @@ struct SettingsSectionView: View {
                             } label: {
                                 Label("System Settings", systemImage: "gear")
                             }
-                            .buttonStyle(.borderless)
+                            .buttonStyle(CompactHitTargetButtonStyle())
                             .font(.caption)
                         }
                     }

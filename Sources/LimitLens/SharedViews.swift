@@ -2,6 +2,16 @@ import AppKit
 import LimitLensCore
 import SwiftUI
 
+/// Keeps custom controls easy to target when their visual treatment is smaller
+/// than the area users should be able to click.
+struct CompactHitTargetButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .frame(minWidth: 28, minHeight: 28)
+    }
+}
+
 private struct AppAppearanceKey: EnvironmentKey {
     static let defaultValue: AppAppearance = .classic
 }
@@ -1816,7 +1826,7 @@ struct SectionHeader: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.system(size: 10, weight: .semibold))
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .foregroundStyle(appearance == .terminal ? Color.green : Color.secondary)
             .help("Open dashboard")
         }
@@ -1828,7 +1838,7 @@ struct SectionHeader: View {
                     .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                     .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .foregroundStyle(appearance == .terminal ? Color.green : Color.secondary)
             .disabled(isRefreshing)
             .help("Refresh")

@@ -273,7 +273,7 @@ struct LimitLensPopover: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
         .help(label)
     }
 
@@ -339,7 +339,7 @@ struct LimitLensPopover: View {
                 }
                 .frame(width: 36, height: 36)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .help("Refresh all providers")
         }
     }
@@ -365,7 +365,7 @@ struct LimitLensPopover: View {
                 Image(systemName: "gearshape")
                     .frame(width: 24, height: 24)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .foregroundStyle(selectedTab == .settings ? appearance.accentColor : Color.white.opacity(0.46))
             .help("Settings")
 
@@ -380,7 +380,7 @@ struct LimitLensPopover: View {
                 Image(systemName: menuBarDisplayIcon)
                     .frame(width: 24, height: 24)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .foregroundStyle(menuBarDisplay == .logos ? Color.white.opacity(0.46) : appearance.accentColor)
             .help(menuBarDisplayHelp)
 
@@ -390,7 +390,7 @@ struct LimitLensPopover: View {
                 Image(systemName: "power")
                     .frame(width: 24, height: 24)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .foregroundStyle(Color.white.opacity(0.46))
             .help("Quit")
         }
@@ -427,7 +427,7 @@ struct LimitLensPopover: View {
                             .fill(appearance.accentColor.opacity(0.12))
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .help("Refresh all providers")
         }
     }
@@ -473,7 +473,7 @@ struct LimitLensPopover: View {
                     .fill(isSelected ? appearance.accentColor : .clear)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
         .help(
             providerName(
                 tab.displayName,
@@ -510,7 +510,7 @@ struct LimitLensPopover: View {
                             .fill(appearance.accentColor.opacity(0.12))
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .help("Refresh all providers")
         }
     }
@@ -549,7 +549,7 @@ struct LimitLensPopover: View {
                         .fill(isSelected ? appearance.accentColor : .clear)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
         .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
     }
 
@@ -594,7 +594,7 @@ struct LimitLensPopover: View {
                             .fill(appearance.accentColor.opacity(0.10))
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .help("Refresh all providers")
         }
     }
@@ -619,7 +619,7 @@ struct LimitLensPopover: View {
                     .frame(width: 24, height: 24)
                     .background(Circle().fill(Color.secondary.opacity(0.10)))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .foregroundStyle(.secondary)
             .help("Refresh all providers")
         }
@@ -783,7 +783,7 @@ struct LimitLensPopover: View {
                     .fill(isSelected ? appearance.accentColor.opacity(0.13) : .clear)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
         .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
     }
 
@@ -809,7 +809,7 @@ struct LimitLensPopover: View {
             )
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
         .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
     }
 
@@ -922,7 +922,7 @@ struct LimitLensPopover: View {
                     .foregroundStyle(selectedTab == .settings ? Color.accentColor : Color.secondary.opacity(0.75))
                     .frame(width: 16, height: 16)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .help("Settings")
             Button {
                 viewModel.updateConfiguration { configuration in
@@ -937,12 +937,12 @@ struct LimitLensPopover: View {
                     .foregroundStyle(menuBarDisplay == .logos ? Color.secondary.opacity(0.75) : Color.accentColor)
                     .frame(width: 16, height: 16)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .help(menuBarDisplayHelp)
             Button("Quit") {
                 NSApp.terminate(nil)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(CompactHitTargetButtonStyle())
             .font(.caption)
         }
     }

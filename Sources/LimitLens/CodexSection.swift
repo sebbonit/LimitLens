@@ -108,7 +108,7 @@ struct CodexSectionView: View {
                         .foregroundStyle(.secondary)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(CompactHitTargetButtonStyle())
                 .help("About local usage and API-equivalent cost")
                 .popover(isPresented: $showsLocalUsageInfo, arrowEdge: .top) {
                     VStack(alignment: .leading, spacing: 7) {
@@ -209,7 +209,7 @@ struct CodexSectionView: View {
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(CompactHitTargetButtonStyle())
                 .disabled(!canExpand)
                 .help(canExpand ? "Show all reset credit expiries" : "No additional reset credits")
             }

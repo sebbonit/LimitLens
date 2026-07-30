@@ -144,7 +144,7 @@ struct OverviewSectionView: View {
             )
             .shadow(color: appearance.studioShadowColor(for: colorScheme), radius: 8, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     private var studioBillingPanel: some View {
@@ -318,7 +318,7 @@ struct OverviewSectionView: View {
             )
             .shadow(color: appearance.pulseShadowColor(for: colorScheme), radius: 6, y: 3)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     private var harborOverview: some View {
@@ -463,7 +463,7 @@ struct OverviewSectionView: View {
             )
             .shadow(color: appearance.harborShadowColor(for: colorScheme), radius: 5, y: 2)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     private var constellationOverview: some View {
@@ -650,7 +650,7 @@ struct OverviewSectionView: View {
                     .offset(x: index.isMultiple(of: 2) ? -2 : 2)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     private var constellationRenewalPanel: some View {
@@ -766,7 +766,7 @@ struct OverviewSectionView: View {
             .background(Color.green.opacity(0.035))
             .overlay(Rectangle().stroke(Color.green.opacity(0.18), lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     private var terminalBillingGrid: some View {
@@ -855,7 +855,7 @@ struct OverviewSectionView: View {
             .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CompactHitTargetButtonStyle())
     }
 
     private func overviewSupportText(for summary: ProviderUsageSummary) -> String {
