@@ -273,7 +273,7 @@ struct LimitLensPopover: View {
                 }
             }
         }
-        .buttonStyle(CompactHitTargetButtonStyle())
+        .buttonStyle(.plain)
         .help(label)
     }
 
@@ -473,7 +473,7 @@ struct LimitLensPopover: View {
                     .fill(isSelected ? appearance.accentColor : .clear)
             )
         }
-        .buttonStyle(CompactHitTargetButtonStyle())
+        .buttonStyle(.plain)
         .help(
             providerName(
                 tab.displayName,
@@ -549,7 +549,7 @@ struct LimitLensPopover: View {
                         .fill(isSelected ? appearance.accentColor : .clear)
                 )
         }
-        .buttonStyle(CompactHitTargetButtonStyle())
+        .buttonStyle(.plain)
         .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
     }
 
@@ -783,7 +783,7 @@ struct LimitLensPopover: View {
                     .fill(isSelected ? appearance.accentColor.opacity(0.13) : .clear)
             )
         }
-        .buttonStyle(CompactHitTargetButtonStyle())
+        .buttonStyle(.plain)
         .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
     }
 
@@ -809,7 +809,7 @@ struct LimitLensPopover: View {
             )
             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
         }
-        .buttonStyle(CompactHitTargetButtonStyle())
+        .buttonStyle(.plain)
         .help(providerName(tab.displayName, privateName: tab.privateName, hidesProviderNames: viewModel.hidesProviderNames))
     }
 

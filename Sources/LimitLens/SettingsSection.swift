@@ -120,7 +120,7 @@ struct SettingsSectionView: View {
                         }
                     }
                 }
-                .buttonStyle(CompactHitTargetButtonStyle())
+                .buttonStyle(.plain)
                 if !isCollapsed { content() }
             }
             .padding(11)
@@ -230,7 +230,7 @@ struct SettingsSectionView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .buttonStyle(CompactHitTargetButtonStyle())
+        .buttonStyle(.plain)
     }
 
     private func toggleSection(_ id: String) {
@@ -299,7 +299,7 @@ struct SettingsSectionView: View {
                     .stroke(isSelected ? appearance.accentColor.opacity(0.75) : Color.primary.opacity(0.08), lineWidth: isSelected ? 1.5 : 0.5)
             )
         }
-        .buttonStyle(CompactHitTargetButtonStyle())
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder

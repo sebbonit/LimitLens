@@ -2,8 +2,9 @@ import AppKit
 import LimitLensCore
 import SwiftUI
 
-/// Keeps custom controls easy to target when their visual treatment is smaller
-/// than the area users should be able to click.
+/// Keeps compact controls easy to target when their visual treatment is smaller
+/// than the area users should be able to click. Layout-owning buttons should
+/// use the plain style instead so their intrinsic height is preserved.
 struct CompactHitTargetButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
