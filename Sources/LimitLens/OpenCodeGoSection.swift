@@ -13,6 +13,7 @@ struct OpenCodeGoSectionView: View {
     var onRefresh: (() -> Void)? = nil
     var paceProjection: PaceProjection? = nil
     var isCollectingPaceData: Bool = false
+    var paceChart: QuotaPaceChartData? = nil
 
     var body: some View {
         SectionBlock {
@@ -36,6 +37,11 @@ struct OpenCodeGoSectionView: View {
 
                 if let snapshot = snapshot, snapshot.hasUsage {
                     openCodeGoUsageView(snapshot)
+
+                    if let paceChart {
+                        Divider()
+                        QuotaPaceChart(data: paceChart, tint: .mint)
+                    }
                 } else if case .loading = state {
                     StatusLine(icon: "hourglass", color: .secondary, text: "Checking OpenCode Go usage...")
                 } else if case .failed(let message) = state {

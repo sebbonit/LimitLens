@@ -65,11 +65,12 @@ extension UsageViewModel {
             .first
     }
 
-    /// Pace charts are intentionally limited to the two providers whose
-    /// detailed tabs currently expose a single, well-defined active cycle.
+    /// Builds a pace chart for the active quota shown in a provider's summary.
+    /// Providers with persisted historical samples also receive the historical
+    /// pace overlay; the other providers still get the target, actual, and
+    /// current forecast lines.
     func quotaPaceChart(for tab: ProviderTab) -> QuotaPaceChartData? {
-        guard tab == .codex || tab == .cursor,
-              let summary = providerSummaries.first(where: { $0.tab == tab }),
+        guard let summary = providerSummaries.first(where: { $0.tab == tab }),
               let percentUsed = summary.percentUsed,
               let cycleStart = summary.cycleStart,
               let resetAt = summary.resetAt,
@@ -85,12 +86,13 @@ extension UsageViewModel {
             now: now,
             resetAt: resetAt
         )
-        let historyProvider: QuotaUsageHistoryProvider = tab == .codex ? .codex : .cursor
-        let historicalRate = QuotaUsageHistoryCalculator.historicalPercentUsedPerDay(
-            provider: historyProvider,
-            before: cycleStart,
-            in: quotaUsageHistoryStore.payload.samples
-        )
+        let historicalRate = quotaUsageHistoryProvider(for: tab).flatMap { historyProvider in
+            QuotaUsageHistoryCalculator.historicalPercentUsedPerDay(
+                provider: historyProvider,
+                before: cycleStart,
+                in: quotaUsageHistoryStore.payload.samples
+            )
+        }
         return QuotaPaceChartData(
             quotaLabel: summary.quotaLabel ?? "Quota",
             currentPercentUsed: percentUsed,

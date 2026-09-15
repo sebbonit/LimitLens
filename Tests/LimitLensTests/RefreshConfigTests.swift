@@ -59,6 +59,20 @@ struct RefreshConfigTests {
         #expect(viewModel.lastFetchAt[.openCodeGo] != nil)
     }
 
+    @Test("Pace charts are available for Devin and OpenCode Go")
+    func paceChartsAreAvailableForAdditionalProviders() async {
+        let viewModel = makeViewModel(
+            desktopQuota: MockDesktopQuotaClient(result: .success([desktopQuotaSnapshot(dailyRemainingPercent: 80)])),
+            openCodeGo: MockOpenCodeGoUsageClient(result: .success(openCodeGoSnapshot(percent: 25)))
+        )
+
+        await viewModel.refreshProvider(.devin)
+        await viewModel.refreshProvider(.openCodeGo)
+
+        #expect(viewModel.quotaPaceChart(for: .devin)?.quotaLabel == "Daily")
+        #expect(viewModel.quotaPaceChart(for: .openCodeGo)?.quotaLabel == "Rolling")
+    }
+
     @Test("Per-provider refresh does not refresh other providers")
     func perProviderRefreshDoesNotRefreshOthers() async {
         let codex = MockCodexUsageClient(result: .success(codexSnapshot(primaryPercent: 42)))

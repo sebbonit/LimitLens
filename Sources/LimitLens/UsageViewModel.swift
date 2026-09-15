@@ -754,7 +754,7 @@ final class UsageViewModel: ObservableObject {
         }
     }
 
-    private func quotaUsageHistoryProvider(for tab: ProviderTab) -> QuotaUsageHistoryProvider? {
+    func quotaUsageHistoryProvider(for tab: ProviderTab) -> QuotaUsageHistoryProvider? {
         switch tab {
         case .codex: return .codex
         case .cursor: return .cursor

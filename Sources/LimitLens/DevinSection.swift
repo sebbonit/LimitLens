@@ -12,6 +12,7 @@ struct DevinSectionView: View {
     var onRefresh: (() -> Void)? = nil
     var paceProjection: PaceProjection? = nil
     var isCollectingPaceData: Bool = false
+    var paceChart: QuotaPaceChartData? = nil
     @Environment(\.appAppearance) private var appearance
 
     var body: some View {
@@ -39,6 +40,11 @@ struct DevinSectionView: View {
                         ForEach(snapshots, id: \.appName) { quota in
                             desktopQuotaView(quota)
                         }
+                    }
+
+                    if let paceChart {
+                        Divider()
+                        QuotaPaceChart(data: paceChart, tint: .green)
                     }
                 } else if case .loading = state {
                     StatusLine(icon: "hourglass", color: .secondary, text: "Checking Devin quota...")

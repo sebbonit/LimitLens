@@ -53,7 +53,7 @@ Each provider can be enabled or disabled independently. Disabled providers are n
 - Live menu bar progress rings and countdown pills
 - Billing / renewal tracking with urgency colors
 - Pace projection (“will exhaust before reset” vs spare capacity)
-- Codex and Cursor burn-down charts with target, actual, current, and historical pace
+- Provider quota pace charts with target, actual, and current forecast lines; Codex and Cursor also include historical pace when available
 - Rolling Codex usage and API-equivalent cost for the last 24 hours, 7 days, and 30 days
 - Exhaustion history with average time-to-exhaust
 - Per-provider detail tabs, diagnostics, and on-demand refresh

@@ -256,6 +256,7 @@ struct LimitLensPopover: View {
             .padding(.leading, 0)
             .padding(.trailing, 5)
             .frame(width: 108, alignment: .leading)
+            .contentShape(Rectangle())
             .background(
                 Group {
                     if isSelected {
@@ -468,6 +469,7 @@ struct LimitLensPopover: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(isSelected ? appearance.accentColor : .clear)
@@ -544,6 +546,7 @@ struct LimitLensPopover: View {
                 .foregroundStyle(isSelected ? Color.white : Color.secondary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 30)
+                .contentShape(Rectangle())
                 .background(
                     Capsule()
                         .fill(isSelected ? appearance.accentColor : .clear)
@@ -678,7 +681,8 @@ struct LimitLensPopover: View {
                 lastUpdated: viewModel.lastFetchAt[.devin],
                 onRefresh: { Task { await viewModel.refreshProvider(.devin) } },
                 paceProjection: viewModel.paceProjections[.devin],
-                isCollectingPaceData: viewModel.collectingPaceData.contains(.devin)
+                isCollectingPaceData: viewModel.collectingPaceData.contains(.devin),
+                paceChart: viewModel.quotaPaceChart(for: .devin)
             )
         case .openCodeGo:
             OpenCodeGoSectionView(
@@ -691,7 +695,8 @@ struct LimitLensPopover: View {
                 lastUpdated: viewModel.lastFetchAt[.openCodeGo],
                 onRefresh: { Task { await viewModel.refreshProvider(.openCodeGo) } },
                 paceProjection: viewModel.paceProjections[.openCodeGo],
-                isCollectingPaceData: viewModel.collectingPaceData.contains(.openCodeGo)
+                isCollectingPaceData: viewModel.collectingPaceData.contains(.openCodeGo),
+                paceChart: viewModel.quotaPaceChart(for: .openCodeGo)
             )
         case .settings:
             SettingsSectionView(viewModel: viewModel, selectedTab: $selectedTab)
@@ -778,6 +783,7 @@ struct LimitLensPopover: View {
             .padding(.horizontal, appearance == .terminal ? 4 : 7)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: appearance == .terminal ? .center : .leading)
+            .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: appearance == .terminal ? 1 : 8)
                     .fill(isSelected ? appearance.accentColor.opacity(0.13) : .clear)
@@ -803,6 +809,7 @@ struct LimitLensPopover: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 5)
             .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(isSelected ? Color.primary.opacity(0.08) : .clear)
@@ -867,7 +874,10 @@ struct LimitLensPopover: View {
                     hidesProviderNames: viewModel.hidesProviderNames,
                     isRefreshing: viewModel.isProviderRefreshing(.devin),
                     lastUpdated: viewModel.lastFetchAt[.devin],
-                    onRefresh: { Task { await viewModel.refreshProvider(.devin) } }
+                    onRefresh: { Task { await viewModel.refreshProvider(.devin) } },
+                    paceProjection: viewModel.paceProjections[.devin],
+                    isCollectingPaceData: viewModel.collectingPaceData.contains(.devin),
+                    paceChart: viewModel.quotaPaceChart(for: .devin)
                 )
             case .openCodeGo:
                 OpenCodeGoSectionView(
@@ -878,7 +888,10 @@ struct LimitLensPopover: View {
                     dashboardURL: viewModel.openCodeGoDashboardURL,
                     isRefreshing: viewModel.isProviderRefreshing(.openCodeGo),
                     lastUpdated: viewModel.lastFetchAt[.openCodeGo],
-                    onRefresh: { Task { await viewModel.refreshProvider(.openCodeGo) } }
+                    onRefresh: { Task { await viewModel.refreshProvider(.openCodeGo) } },
+                    paceProjection: viewModel.paceProjections[.openCodeGo],
+                    isCollectingPaceData: viewModel.collectingPaceData.contains(.openCodeGo),
+                    paceChart: viewModel.quotaPaceChart(for: .openCodeGo)
                 )
             case .settings:
                 SettingsSectionView(viewModel: viewModel, selectedTab: $selectedTab)
