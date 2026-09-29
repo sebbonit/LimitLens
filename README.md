@@ -141,11 +141,11 @@ Corrupt configs are renamed to `config.invalid.json` and defaults are loaded.
 
 ### OpenCode Go
 
-OpenCode Go usage is scraped from the web dashboard (the CLI token does not expose usage windows). On first launch, Settings opens with a dashboard auth form.
+OpenCode Go usage is read from the console API (the CLI token does not expose usage windows). On first launch, Settings opens with a dashboard auth form.
 
 You need:
-- Workspace ID from a URL like `https://opencode.ai/workspace/<workspace-id>/go`
-- Browser cookie named `auth` for `opencode.ai`
+- Workspace ID from a URL like `https://opencode.ai/console/<workspace-id>/go`
+- Browser cookie named `__Host-console_session` for `opencode.ai`
 
 The form writes `~/.config/opencode/opencode-quota/opencode-go.json`. For a terminal fallback:
 
@@ -170,7 +170,7 @@ UsageViewModel.start()
   │    ├─ Codex (app-server JSON-RPC + chatgpt.com APIs)
   │    ├─ Cursor (SQLite auth → api2.cursor.sh)
   │    ├─ Devin (protobuf / local language server / SQLite)
-  │    └─ OpenCode Go (dashboard HTML scrape)
+  │    └─ OpenCode Go (console API)
   ├─ Notification coordinator
   └─ Clock loop (1 min) → live countdowns
 ```
@@ -231,7 +231,7 @@ No. It talks only to the provider APIs/dashboards you already use, with credenti
 It reads existing auth (e.g. `~/.codex/auth.json`, Cursor’s SQLite DB, OpenCode Go cookie config). App settings are saved under Application Support; do not commit those files.
 
 **Why does OpenCode Go need a cookie?**  
-The CLI token does not expose usage windows. Dashboard scraping needs the `auth` cookie, stored locally and sent only to opencode.ai.
+The CLI token does not expose usage windows. The console API needs the `__Host-console_session` cookie, stored locally and sent only to opencode.ai.
 
 **Can I hide provider names for screenshots?**  
 Yes — use **Hidden** menu bar display mode in Settings.

@@ -522,7 +522,7 @@ struct SettingsSectionView: View {
                 Spacer()
             }
 
-            Text("Paste your workspace ID and browser auth cookie to track usage from the web dashboard.")
+            Text("Paste your workspace ID and the browser cookie named __Host-console_session to track OpenCode Go usage.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -531,7 +531,7 @@ struct SettingsSectionView: View {
                 TextField("Workspace ID or dashboard URL", text: $openCodeGoWorkspaceInput)
                     .textFieldStyle(.roundedBorder)
 
-                SecureField("Auth cookie", text: $openCodeGoAuthCookieInput)
+                SecureField("Console session cookie", text: $openCodeGoAuthCookieInput)
                     .textFieldStyle(.roundedBorder)
             }
 
