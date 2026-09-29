@@ -8,8 +8,8 @@ printf "OpenCode Go dashboard config for LimitLens\n\n"
 printf "1. Open https://opencode.ai in your browser.\n"
 printf "2. Go to the Go usage dashboard.\n"
 printf "3. Copy the workspace id from a URL like:\n"
-printf "   https://opencode.ai/workspace/<workspace-id>/go\n"
-printf "4. Copy the browser cookie named auth for opencode.ai.\n\n"
+printf "   https://opencode.ai/console/<workspace-id>/go\n"
+printf "4. Copy the browser cookie named __Host-console_session for opencode.ai.\n\n"
 
 read -r -p "Workspace id: " WORKSPACE_ID
 if [[ -z "${WORKSPACE_ID// }" ]]; then
@@ -33,7 +33,7 @@ import sys
 path = pathlib.Path(sys.argv[1])
 payload = {
     "workspaceId": sys.argv[2].strip(),
-    "authCookie": sys.argv[3].strip(),
+    "authCookie": sys.argv[3].strip() if "=" in sys.argv[3] else "__Host-console_session=" + sys.argv[3].strip(),
 }
 path.write_text(json.dumps(payload, indent=2) + "\n")
 path.chmod(0o600)

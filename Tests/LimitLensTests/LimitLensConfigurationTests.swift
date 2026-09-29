@@ -232,6 +232,19 @@ struct LimitLensConfigurationTests {
         #expect(OpenCodeGoDashboardCredentials.normalizedWorkspaceId(from: "https://opencode.ai") == "")
     }
 
+    @Test("OpenCode console URLs normalize to a workspace ID")
+    func normalizesOpenCodeConsoleURL() {
+        #expect(OpenCodeGoDashboardCredentials.normalizedWorkspaceId(from: "https://opencode.ai/console/wrk_test") == "wrk_test")
+        #expect(OpenCodeGoDashboardCredentials.normalizedWorkspaceId(from: "https://opencode.ai/console/wrk_test/go") == "wrk_test")
+        #expect(OpenCodeGoDashboardCredentials.dashboardURL(workspaceId: "wrk_test").absoluteString == "https://opencode.ai/console/wrk_test/go")
+    }
+
+    @Test("OpenCode console session cookie takes priority over legacy auth")
+    func normalizesConsoleSessionCookie() {
+        #expect(OpenCodeGoDashboardCredentials.normalizedAuthCookie(from: "st_test") == "__Host-console_session=st_test")
+        #expect(OpenCodeGoDashboardCredentials.normalizedAuthCookie(from: "Cookie: auth=legacy; __Host-console_session=st_test; other=value") == "__Host-console_session=st_test")
+    }
+
     @Test("OpenCode Go config writer creates private JSON file")
     func openCodeGoConfigWriterCreatesPrivateJSONFile() throws {
         let directory = temporaryDirectory()

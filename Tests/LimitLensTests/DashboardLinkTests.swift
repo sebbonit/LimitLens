@@ -32,7 +32,7 @@ struct DashboardLinkTests {
     @Test("OpenCode Go dashboard URL builder encodes workspace ID")
     func openCodeGoDashboardURLEncodesWorkspaceId() {
         let url = OpenCodeGoDashboardCredentials.dashboardURL(workspaceId: "team-123")
-        #expect(url.absoluteString == "https://opencode.ai/workspace/team-123/go")
+        #expect(url.absoluteString == "https://opencode.ai/console/team-123/go")
     }
 
     @Test("OpenCode Go dashboard URL builder normalizes full dashboard URL input")
@@ -40,12 +40,12 @@ struct DashboardLinkTests {
         let url = OpenCodeGoDashboardCredentials.dashboardURL(
             workspaceId: "https://opencode.ai/workspace/team-456/go?tab=usage"
         )
-        #expect(url.absoluteString == "https://opencode.ai/workspace/team-456/go")
+        #expect(url.absoluteString == "https://opencode.ai/console/team-456/go")
     }
 
     @Test("OpenCode Go dashboard URL builder percent-encodes special characters")
     func openCodeGoDashboardURLPercentEncodesSpecialCharacters() {
         let url = OpenCodeGoDashboardCredentials.dashboardURL(workspaceId: "team test")
-        #expect(url.absoluteString == "https://opencode.ai/workspace/team%20test/go")
+        #expect(url.absoluteString == "https://opencode.ai/console/team%20test/go")
     }
 }

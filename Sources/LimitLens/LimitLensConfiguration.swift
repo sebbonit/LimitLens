@@ -381,7 +381,7 @@ enum OpenCodeGoDashboardCredentialsError: LocalizedError, Equatable {
         case .missingWorkspaceId:
             return "Enter an OpenCode workspace ID."
         case .missingAuthCookie:
-            return "Enter the opencode.ai auth cookie."
+            return "Enter the opencode.ai console session cookie."
         }
     }
 }
@@ -422,7 +422,7 @@ struct OpenCodeGoDashboardCredentials: Codable, Equatable {
             .map(String.init)
             .filter { !$0.isEmpty }
 
-        if let workspaceIndex = parts.lastIndex(of: "workspace"),
+        if let workspaceIndex = parts.lastIndex(where: { $0 == "workspace" || $0 == "console" }),
            parts.indices.contains(workspaceIndex + 1) {
             return percentDecoded(parts[workspaceIndex + 1])
         }
@@ -449,6 +449,16 @@ struct OpenCodeGoDashboardCredentials: Codable, Equatable {
         guard !trimmed.isEmpty else { return "" }
 
         for pair in trimmed.split(separator: ";") {
+            let value = pair.trimmingCharacters(in: .whitespacesAndNewlines)
+            if value.hasPrefix("__Host-console_session=") {
+                return value
+            }
+        }
+        if trimmed.hasPrefix("st_") {
+            return "__Host-console_session=\(trimmed)"
+        }
+
+        for pair in trimmed.split(separator: ";") {
             let pieces = pair.split(separator: "=", maxSplits: 1).map(String.init)
             guard pieces.count == 2,
                   pieces[0].trimmingCharacters(in: .whitespacesAndNewlines) == "auth" else {
@@ -471,7 +481,7 @@ struct OpenCodeGoDashboardCredentials: Codable, Equatable {
             return URL(string: "https://opencode.ai")!
         }
         let encoded = normalized.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? normalized
-        return URL(string: "https://opencode.ai/workspace/\(encoded)/go")!
+        return URL(string: "https://opencode.ai/console/\(encoded)/go")!
     }
 }
 

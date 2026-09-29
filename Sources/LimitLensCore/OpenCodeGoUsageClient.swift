@@ -21,7 +21,7 @@ public final class OpenCodeGoUsageClient: OpenCodeGoUsageFetching, @unchecked Se
             throw CodexUsageError.unavailable("Configure OpenCode Go dashboard auth in Settings.")
         }
 
-        async let usageTask = scrapeDashboard(config: config)
+        async let usageTask = fetchUsage(config: config)
         async let billingTask = scrapeBilling(config: config)
 
         var snapshot = try await usageTask
@@ -36,6 +36,50 @@ public final class OpenCodeGoUsageClient: OpenCodeGoUsageFetching, @unchecked Se
         return snapshot
     }
 
+    private func fetchUsage(config: OpenCodeGoDashboardConfig) async throws -> OpenCodeGoUsageSnapshot {
+        var request = URLRequest(url: URL(string: "https://opencode.ai/console/api/go/status")!)
+        request.timeoutInterval = 10
+        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(config.cookieHeader, forHTTPHeaderField: "Cookie")
+        request.setValue(config.workspaceId, forHTTPHeaderField: "x-org-id")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw CodexUsageError.unavailable("OpenCode Go dashboard response was invalid.")
+        }
+        if http.statusCode == 404 {
+            return try await scrapeDashboard(config: config)
+        }
+        if http.statusCode == 401 || Self.isAuthenticationURL(http.url) {
+            throw CodexUsageError.unavailable("OpenCode Go session expired. Update the auth cookie in Settings.")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw CodexUsageError.unavailable("OpenCode Go dashboard is temporarily unavailable.")
+        }
+        let status: OpenCodeGoConsoleStatus?
+        do {
+            status = try JSONDecoder().decode(OpenCodeGoConsoleStatus?.self, from: data)
+        } catch {
+            throw CodexUsageError.unavailable("OpenCode Go dashboard response was invalid.")
+        }
+        guard let meters = status?.access?.meters else {
+            throw CodexUsageError.unavailable("No active OpenCode Go subscription was found for this workspace.")
+        }
+        return OpenCodeGoUsageSnapshot(
+            rolling: try meters.fiveHour.window(),
+            weekly: try meters.week.window(),
+            monthly: try meters.month.window(),
+            source: "Console API",
+            fetchedAt: Date()
+        )
+    }
+
+    private static func isAuthenticationURL(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        return url.host == "auth.opencode.ai" ||
+            url.path.split(separator: "/").contains { ["login", "authorize", "signin"].contains($0.lowercased()) }
+    }
+
     private func scrapeDashboard(config: OpenCodeGoDashboardConfig) async throws -> OpenCodeGoUsageSnapshot {
         let url = URL(string: "https://opencode.ai/workspace/\(config.workspaceId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? config.workspaceId)/go")!
         var request = URLRequest(url: url)
@@ -43,11 +87,17 @@ public final class OpenCodeGoUsageClient: OpenCodeGoUsageFetching, @unchecked Se
         request.timeoutInterval = 10
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Gecko/20100101 Firefox/148.0", forHTTPHeaderField: "User-Agent")
         request.setValue("text/html", forHTTPHeaderField: "Accept")
-        request.setValue("auth=\(config.authCookie)", forHTTPHeaderField: "Cookie")
+        request.setValue(config.cookieHeader, forHTTPHeaderField: "Cookie")
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw CodexUsageError.unavailable("OpenCode Go dashboard is temporarily unavailable.")
+        }
+
+        // URLSession follows redirects, so an expired auth cookie surfaces as a
+        // 200 login page rather than a 401. Call it out explicitly.
+        if Self.isAuthenticationURL(http.url) {
+            throw CodexUsageError.unavailable("OpenCode Go session expired. Update the auth cookie in Settings.")
         }
 
         guard let html = String(data: data, encoding: .utf8) else {
@@ -69,7 +119,7 @@ public final class OpenCodeGoUsageClient: OpenCodeGoUsageFetching, @unchecked Se
         request.timeoutInterval = 10
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Gecko/20100101 Firefox/148.0", forHTTPHeaderField: "User-Agent")
         request.setValue("text/html", forHTTPHeaderField: "Accept")
-        request.setValue("auth=\(config.authCookie)", forHTTPHeaderField: "Cookie")
+        request.setValue(config.cookieHeader, forHTTPHeaderField: "Cookie")
 
         guard let (data, response) = try? await session.data(for: request),
               let http = response as? HTTPURLResponse,
@@ -81,9 +131,52 @@ public final class OpenCodeGoUsageClient: OpenCodeGoUsageFetching, @unchecked Se
     }
 }
 
+private struct OpenCodeGoConsoleStatus: Decodable {
+    let access: Access?
+
+    struct Access: Decodable {
+        let meters: Meters
+    }
+
+    struct Meters: Decodable {
+        let fiveHour: Meter
+        let week: Meter
+        let month: Meter
+    }
+
+    struct Meter: Decodable {
+        let limitMicroCents: String
+        let usedMicroCents: String
+        let resetsAt: String?
+
+        func window() throws -> OpenCodeGoUsageWindow {
+            guard let limit = Double(limitMicroCents), limit.isFinite, limit > 0,
+                  let used = Double(usedMicroCents), used.isFinite, used >= 0 else {
+                throw CodexUsageError.unavailable("OpenCode Go dashboard response was invalid.")
+            }
+            let resetAt: Date?
+            if let resetsAt {
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                resetAt = formatter.date(from: resetsAt) ?? ISO8601DateFormatter().date(from: resetsAt)
+                guard resetAt != nil else {
+                    throw CodexUsageError.unavailable("OpenCode Go dashboard response was invalid.")
+                }
+            } else {
+                resetAt = nil
+            }
+            return OpenCodeGoUsageWindow(usedPercent: used / limit * 100, resetAt: resetAt)
+        }
+    }
+}
+
 struct OpenCodeGoDashboardConfig: Equatable {
     let workspaceId: String
     let authCookie: String
+
+    var cookieHeader: String {
+        authCookie.hasPrefix("__Host-console_session=") ? authCookie : "auth=\(authCookie)"
+    }
 
     static func resolve(configPath: String, environment: [String: String] = ProcessInfo.processInfo.environment) throws -> OpenCodeGoDashboardConfig? {
         if let workspaceId = environment["OPENCODE_GO_WORKSPACE_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
