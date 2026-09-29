@@ -1424,7 +1424,12 @@ struct SettingsSectionView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let path: String
         if tab == .codex, url.pathExtension == "app" {
-            path = url.appendingPathComponent("Contents/Resources/codex").path
+            let relocated = url.appendingPathComponent("Contents/Resources/codex-cli/bin/codex")
+            if FileManager.default.isExecutableFile(atPath: relocated.path) {
+                path = relocated.path
+            } else {
+                path = url.appendingPathComponent("Contents/Resources/codex").path
+            }
         } else {
             path = url.path
         }

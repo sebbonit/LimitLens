@@ -12,7 +12,7 @@ public final class CodexAppServerClient: CodexUsageFetching, @unchecked Sendable
     private let requestTimeout: Duration
 
     public init(
-        executablePath: String = "/Applications/ChatGPT.app/Contents/Resources/codex",
+        executablePath: String = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
         appVersion: String = "1.0.0",
         resetCreditFetcher: ResetCreditFetching = BackendResetCreditClient(),
         accountFetcher: CodexAccountFetching = BackendCodexAccountClient(),

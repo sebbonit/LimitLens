@@ -41,8 +41,10 @@ enum AppAppearance: String, Codable, Equatable, CaseIterable, Identifiable {
 }
 
 struct LimitLensConfiguration: Codable, Equatable {
-    static let currentCodexExecutablePath = "/Applications/ChatGPT.app/Contents/Resources/codex"
+    static let currentCodexExecutablePath = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
     static let legacyCodexExecutablePaths = [
+        "/Applications/ChatGPT.app/Contents/Resources/codex",
+        "\(NSHomeDirectory())/Applications/ChatGPT.app/Contents/Resources/codex",
         "/Applications/Codex.app/Contents/Resources/codex",
         "\(NSHomeDirectory())/Applications/Codex.app/Contents/Resources/codex"
     ]
@@ -50,6 +52,8 @@ struct LimitLensConfiguration: Codable, Equatable {
     static var codexExecutableCandidates: [String] {
         [
             currentCodexExecutablePath,
+            "\(NSHomeDirectory())/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
+            "/Applications/ChatGPT.app/Contents/Resources/codex",
             "\(NSHomeDirectory())/Applications/ChatGPT.app/Contents/Resources/codex",
             "/Applications/Codex.app/Contents/Resources/codex",
             "\(NSHomeDirectory())/Applications/Codex.app/Contents/Resources/codex",
